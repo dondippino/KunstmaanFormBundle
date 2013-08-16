@@ -1,6 +1,7 @@
 parameters:
   kunstmaan_form.form_mailer.class: 'Kunstmaan\FormBundle\Helper\FormMailer'
   kunstmaan_form.form_handler.class: 'Kunstmaan\FormBundle\Helper\FormHandler'
+  kunstmaan_form.exporter_service.class: 'Kunstmaan\FormBundle\Helper\Services\FormExporterService'
 
 services:
     kunstmaan_form.menu.adaptor.forms:
@@ -15,6 +16,11 @@ services:
     kunstmaan_form.form_handler:
         class: %kunstmaan_form.form_handler.class%
         arguments: [@service_container]
+
+    kunstmaan_form.exporter_service:
+        class: %kunstmaan_form.exporter_service.class%
+        calls:
+            - [setConfig, ['%kunstmaan_form.export_config%']]
 
     kunstmaan_form.configure_sub_actions_menu_listener:
         class: Kunstmaan\FormBundle\EventListener\ConfigureActionsMenuListener

@@ -4,6 +4,7 @@ namespace Kunstmaan\FormBundle\Entity;
 
 use DateTime;
 
+use Kunstmaan\FormBundle\Helper\Services\FormExportableInterface;
 use Kunstmaan\NodeBundle\Entity\Node;
 
 use Doctrine\Common\Collections\ArrayCollection;
@@ -16,7 +17,7 @@ use Doctrine\ORM\Mapping as ORM;
  * @ORM\Table(name="kuma_form_submissions")
  * @ORM\HasLifecycleCallbacks()
  */
-class FormSubmission
+class FormSubmission implements FormExportableInterface
 {
     /**
      * This id of the form submission
@@ -190,6 +191,13 @@ class FormSubmission
     public function __toString()
     {
         return "FormSubmission";
+    }
+
+
+
+    public function getIdentifier()
+    {
+        return $this->getId();
     }
 
 }

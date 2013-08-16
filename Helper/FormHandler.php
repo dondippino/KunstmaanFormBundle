@@ -4,6 +4,8 @@ namespace Kunstmaan\FormBundle\Helper;
 
 use ArrayObject;
 
+use Kunstmaan\FormBundle\Helper\Services\FormExporterInterface;
+use Kunstmaan\FormBundle\Helper\Services\FormExporterService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -87,6 +89,10 @@ class FormHandler implements FormHandlerInterface
                     $mailer = $this->container->get('kunstmaan_form.form_mailer');
                     $mailer->sendContactMail($formSubmission, $from, $to, $subject);
                 }
+
+                /** @var $formExporterService FormExporterService */
+                $formExporterService = $this->container->get('kunstmaan_form.exporter_service');
+                $formExporterService->export($formSubmission);
 
                 return new RedirectResponse($page->generateThankYouUrl($router, $context));
             }

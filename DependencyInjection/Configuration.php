@@ -20,11 +20,24 @@ class Configuration implements ConfigurationInterface
     public function getConfigTreeBuilder()
     {
         $treeBuilder = new TreeBuilder();
-        $treeBuilder->root('kunstmaan_form');
+        $rootNode = $treeBuilder->root('kunstmaan_form');
 
-        // Here you should define the parameters that are allowed to
-        // configure your bundle. See the documentation linked above for
-        // more information on that topic.
+        // http://symfony.com/doc/2.2/components/config/definition.html
+        $rootNode
+            ->children()
+                ->arrayNode('export')
+                    ->children()
+                    ->arrayNode('zendesk')
+                        ->children()
+                            ->scalarNode('api_key')->isRequired()->end()
+                            ->scalarNode('domain')->isRequired()->end()
+                    ->end()
+                ->end()
+            ->end();
+
+        // TODO: How would we add exporters defined by third parties here?
+        //       Maybe work with the tagging system? And define regular services?
+
         return $treeBuilder;
     }
 }
