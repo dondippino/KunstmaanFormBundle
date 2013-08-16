@@ -2,6 +2,8 @@ parameters:
   kunstmaan_form.form_mailer.class: 'Kunstmaan\FormBundle\Helper\FormMailer'
   kunstmaan_form.form_handler.class: 'Kunstmaan\FormBundle\Helper\FormHandler'
   kunstmaan_form.exporter_service.class: 'Kunstmaan\FormBundle\Helper\Services\FormExporterService'
+  kunstmaan_form.zendesk_exporter.class: 'Kunstmaan\FormBundle\Helper\Export\ZendeskFormExporter'
+  kunstmaan_form.log_exporter.class: 'Kunstmaan\FormBundle\Helper\Export\LogFormExporter'
 
 services:
     kunstmaan_form.menu.adaptor.forms:
@@ -17,10 +19,20 @@ services:
         class: %kunstmaan_form.form_handler.class%
         arguments: [@service_container]
 
+    # TODO: Tagging systeem. Maar is dat tagging systeem wel logisch?
+    #       Zo moet je precies permanent zendesk inladen.
+    #       Wat als we ze toevoegen als Taggable service maar dat we ook kijken naar de configuratie.
+    #       Dus we geven de service standaard mee, als er geen configuratie voor is, dan laden we hem ook niet in.
+
     kunstmaan_form.exporter_service:
         class: %kunstmaan_form.exporter_service.class%
         calls:
-            - [setConfig, ['%kunstmaan_form.export_config%']]
+            - [createExporters, ['%kunstmaan_form.exporter_configuration%']]
+
+    kunstmaan_form.exporters.log_exporter:
+        class: %kunstmaan_form.log_exporter.class%
+        tags:
+            - { name: 'kunstmaan_form.exporter' }
 
     kunstmaan_form.configure_sub_actions_menu_listener:
         class: Kunstmaan\FormBundle\EventListener\ConfigureActionsMenuListener

@@ -25,18 +25,18 @@ class Configuration implements ConfigurationInterface
         // http://symfony.com/doc/2.2/components/config/definition.html
         $rootNode
             ->children()
-                ->arrayNode('export')
+                ->arrayNode('exporters')
                     ->children()
                     ->arrayNode('zendesk')
                         ->children()
                             ->scalarNode('api_key')->isRequired()->end()
                             ->scalarNode('domain')->isRequired()->end()
+                            ->scalarNode('login')->isRequired()->end()
                     ->end()
                 ->end()
             ->end();
 
-        // TODO: How would we add exporters defined by third parties here?
-        //       Maybe work with the tagging system? And define regular services?
+        // Thirdparty exporters aren't hooked in like this. They are found via the tagging system.
 
         return $treeBuilder;
     }

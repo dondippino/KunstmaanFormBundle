@@ -27,8 +27,17 @@ class KunstmaanFormExtension extends Extension
         // This way we can pass the entire node as a parameter to FormExporterService in the service container.
         $processor     = new Processor();
         $configuration = new Configuration();
+        /** @var $config array */
         $config = $processor->processConfiguration($configuration, $configs);
-        $container->setParameter('kunstmaan_form.export_config', $config['export']);
+
+        // Set the exporter configuration so the FormExporterService can pick it up.
+        // We'll load builtin services this way.
+        $param = array();
+        if (array_key_exists('exporters', $config)) {
+            $param = $config['exporters'];
+        }
+        $container->setParameter('kunstmaan_form.exporter_configuration', $param);
+
 
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yml');

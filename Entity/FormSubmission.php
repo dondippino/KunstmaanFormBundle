@@ -4,7 +4,7 @@ namespace Kunstmaan\FormBundle\Entity;
 
 use DateTime;
 
-use Kunstmaan\FormBundle\Helper\Services\FormExportableInterface;
+use Kunstmaan\FormBundle\Helper\Export\FormExportableInterface;
 use Kunstmaan\NodeBundle\Entity\Node;
 
 use Doctrine\Common\Collections\ArrayCollection;
@@ -198,6 +198,15 @@ class FormSubmission implements FormExportableInterface
     public function getIdentifier()
     {
         return $this->getId();
+    }
+
+
+    public function getFieldsForExport()
+    {
+        // TODO: Find a way to add language, created, node_id, node_name etc in a nice manner.
+        //       There should be a function on the interface to provide this.
+
+        return $this->getFields();
     }
 
 }
