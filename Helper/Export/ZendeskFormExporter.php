@@ -6,7 +6,10 @@ namespace Kunstmaan\FormBundle\Helper\Export;
 use Gedmo\Exception\FeatureNotImplementedException;
 use Kunstmaan\FormBundle\Helper\Export\FormExportableInterface;
 use Kunstmaan\FormBundle\Helper\Export\FormExporterInterface;
+use Kunstmaan\FormBundle\Helper\Zendesk\Model\Ticket;
+use Kunstmaan\FormBundle\Helper\Zendesk\Model\User;
 use Kunstmaan\FormBundle\Helper\Zendesk\ZendeskApiClient;
+
 
 class ZendeskFormExporter implements FormExporterInterface
 {
@@ -48,6 +51,21 @@ class ZendeskFormExporter implements FormExporterInterface
          * Also check if we can update or not in Zentrick. If so we could also provide an update mechanism.
          */
 
+
+        // How t oget email? WTF :x
+
+
+        $message = $name = $email = null;
+
+        // TODO: Fetch the fields via a new mechanism that allows aliases to be set to formfields.
+        // The FormExportableInterface will then be able to read out these aliased fields
+        // and will complain if one isn't found.
+
+        $message = "testing!\nnew like!";
+        $name = "Vincent API Test";
+        $email = "vincent+zendesk_api_test_1@supervillain.be";
+        $subject = 'Customer Feedback';
+
         foreach ($submission->getFieldsForExport() as $field) {
             // TODO: Convert every field to a datastructure known by ZenDesk.
             //       We can either use Symfony's builtin conversion interface or do something else.
@@ -55,10 +73,35 @@ class ZendeskFormExporter implements FormExporterInterface
 
             // TODO: Convert the fields to a new Ticket.
             // TODO: Try and save the ticket.
+            //$ticket = new Ticket();
+            //$ticket->set;
+
+            // TEMP: Code to test that how API actually works using a temporary library.
         }
 
+
+        $user = new User();
+        $user->setName($name)
+            ->setRole('end-user')
+            ->setEmail($email);
+
+        // Don't do this as the impersonated user.
+        $user = $this->apiClient->createUserIfNotPresent($user);
+
+        // Only now start impersonating since this user new exists.
+        $this->apiClient->runAs($email, function(ZendeskApiClient $client) use ($name, $email, $subject, $message, $user) {
+
+
+            $ticket = new Ticket();
+            $ticket->setSubject($subject)
+                   ->setDescription($message)
+                   ->setRequesterID($user->getId())
+                   ->setTags('do_not_email');
+
+            $client->createTicket($ticket);
+        });
+
         // TODO: Write tests for the entire class.
-        throw new FeatureNotImplementedException;
     }
 
     public function getName()

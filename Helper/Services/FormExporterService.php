@@ -24,6 +24,13 @@ class FormExporterService
     /** @var FormExporterInterface[] */
     protected $exporters;
 
+    protected $serializer;
+
+    public function setSerializer($value)
+    {
+        $this->serializer = $value;
+    }
+
     public function addExporter(FormExporterInterface $exporter)
     {
         if (!isset($this->exporters) or is_null($this->exporters)) {
@@ -56,11 +63,14 @@ class FormExporterService
             switch ($exporterName) {
                 case 'zendesk':
                     // TODO: Better way where the container does this work.
+                    // I don't want to hardcode the config to the services.
+                    // One way is to expose all exporters as services.
                     $zendeskExporter = new ZendeskFormExporter();
                     $apiClient = new ZendeskApiClient();
                     $apiClient->setApiKey($config['api_key']);
                     $apiClient->setDomain($config['domain']);
                     $apiClient->setLogin($config['login']);
+                    $apiClient->setSerializer($this->serializer);
                     $zendeskExporter->setApiClient($apiClient);
                     $this->exporters['zendesk'] = $zendeskExporter;
                     break;
