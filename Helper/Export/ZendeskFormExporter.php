@@ -37,6 +37,8 @@ class ZendeskFormExporter implements FormExporterInterface
          * General stuff to add are:
          * - ID of the page
          * - Language of the submission
+         * - Name of the page
+         * - Tag if possible
          * - Fields (create if needed)
          *
          * Try and make hook for adding custom properties of your submission.
