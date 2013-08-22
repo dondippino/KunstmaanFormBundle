@@ -7,6 +7,8 @@ use JMS\Serializer\Annotation as Serializer;
  * Represents a Zendesk user
  *
  * @author Derek Clapham <derek.clapham@photomerchant.net>
+ *
+ * @Serializer\ExclusionPolicy("none")
  */
 class User
 {
@@ -208,7 +210,7 @@ class User
      * A custom role on the user if the user is an agent on the entreprise plan
      * @var integer $customRoleId
      *
-     * @Serializer\SerializedName("custom_rold_id")
+     * @Serializer\SerializedName("custom_role_id")
      * @Serializer\Type("integer")
      */
     private $customRoleId;
@@ -368,11 +370,35 @@ class User
     }
 
     /**
+     * @param $value
+     *
+     * @return $this
+     */
+    public function setCreatedAt($value)
+    {
+        $this->createdAt = $value;
+
+        return $this;
+    }
+
+    /**
      * @return \DateTime The $updatedAt
      */
     public function getUpdatedAt()
     {
         return $this->updatedAt;
+    }
+
+    /**
+     * @param $value
+     *
+     * @return $this
+     */
+    public function setUpdatedAt($value)
+    {
+        $this->updatedAt = $value;
+
+        return $this;
     }
 
     /**

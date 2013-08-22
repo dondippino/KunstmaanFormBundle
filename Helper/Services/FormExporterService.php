@@ -31,6 +31,12 @@ class FormExporterService
         $this->serializer = $value;
     }
 
+    protected $logger;
+    public function setLogger($value)
+    {
+        $this->logger = $value;
+    }
+
     public function addExporter(FormExporterInterface $exporter)
     {
         if (!isset($this->exporters) or is_null($this->exporters)) {
@@ -71,6 +77,7 @@ class FormExporterService
                     $apiClient->setDomain($config['domain']);
                     $apiClient->setLogin($config['login']);
                     $apiClient->setSerializer($this->serializer);
+                    $apiClient->setLogger($this->logger);
                     $zendeskExporter->setApiClient($apiClient);
                     $this->exporters['zendesk'] = $zendeskExporter;
                     break;

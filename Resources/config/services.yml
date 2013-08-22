@@ -28,6 +28,7 @@ services:
         class: %kunstmaan_form.exporter_service.class%
         calls:
             - [setSerializer, ['@jms_serializer']]
+            - [setLogger, ['@kunstmaan_admin.logger']]
             - [createExporters, ['%kunstmaan_form.exporter_configuration%']]
 
     kunstmaan_form.exporters.log_exporter:

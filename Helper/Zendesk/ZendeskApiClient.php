@@ -5,11 +5,16 @@ namespace Kunstmaan\FormBundle\Helper\Zendesk;
 
 use Buzz\Browser;
 use Buzz\Client\FileGetContents;
-use Buzz\Listener\BasicAuthListener;
+use Buzz\Listener\LoggerListener;
 use Buzz\Message\Response;
 use JMS\Serializer\Serializer;
+use Kunstmaan\FormBundle\Helper\Buzz\Listener\TokenAuthListener;
+use Kunstmaan\FormBundle\Helper\Exceptions\ClientSideException;
+use Kunstmaan\FormBundle\Helper\Exceptions\NotAuthorizedException;
+use Kunstmaan\FormBundle\Helper\Exceptions\ServerSideException;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Ticket;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\User;
+use Symfony\Bridge\Monolog\Logger;
 use Symfony\Component\Locale\Exception\NotImplementedException;
 
 
@@ -21,6 +26,9 @@ class ZendeskApiClient
     protected $domain;
 
     protected $login;
+
+    /** @var Logger */
+    protected $logger;
 
     private $url;
 
@@ -41,6 +49,13 @@ class ZendeskApiClient
     public function setLogin($value)
     {
         $this->login = $value;
+
+        return $this;
+    }
+
+    public function setLogger($value)
+    {
+        $this->logger = $value;
 
         return $this;
     }
@@ -105,7 +120,14 @@ class ZendeskApiClient
 
         $client = new FileGetContents();
         $browser = new Browser($client);
-        $browser->addListener(new BasicAuthListener($this->login . '/token', $this->apiKey));
+        $browser->addListener(new TokenAuthListener($this->login, $this->apiKey));
+
+        $logger = $this->logger;
+        $doLog = function($text) use ($logger) {
+            $logger->addInfo($text);
+;       };
+
+        $browser->addListener(new LoggerListener($doLog));
 
         $this->browser = $browser;
 
@@ -130,19 +152,33 @@ class ZendeskApiClient
         // Find the user with this email.
         $response = $browser->get($this->createUrl('?query=' . urlencode($user->getEmail())));
 
-        $users = $this->deserialize($response);
+        $users = $this->handleResponse($response);
 
         if (empty($users)) {
-            // Create the new user.
-            $browser = $this->getBrowser('users');
-
-            // TODO: Add Content-Type: application/json
-            $result = $browser->post($this->createUrl(), array('Content-Type' => 'application/json'), $this->serializeObject($user, 'users'));
-            // TODO: Update ID.
-            var_dump($result);
-
-            return $user;
+            return $this->createCall('users', $user);
         }
+
+        return $users[0];
+    }
+
+    /**
+     * @param string $resource Resource in plural form.
+     * @param object $object The object you want to create.
+     *
+     * @return object The new object with its ID filled in.
+     */
+    private function createCall($resource, $object)
+    {
+        $browser = $this->getBrowser($resource);
+
+        // TODO: Add Content-Type: application/json
+        $result = $browser->post($this->createUrl(), array('Content-Type' => 'application/json'), $this->serializeObject($object, $resource));
+        // TODO: Update ID.
+        var_dump($result);
+
+        $resultingObject = $this->handleResponse($result);
+
+        return $resultingObject;
     }
 
 
@@ -155,16 +191,29 @@ class ZendeskApiClient
 
     public static $TYPE_JSON = 'json';
 
-    public static $RESOURCES = array('users' => 'user');
+    public static $RESOURCES = array('users' => 'user', 'tickets' => 'ticket');
 
     /**
      * Throw an exception on error. When empty, return empty array.
      *
      * @param $response
      */
-    private function deserialize(Response $response)
+    private function handleResponse(Response $response)
     {
-        $rawResponse = json_decode($response->getContent(), true, 3);
+        $rawResponse = json_decode($response->getContent(), true);
+
+        // If 401, unauthorized.
+        if ($response->getStatusCode() == 401) {
+            throw new NotAuthorizedException($rawResponse['error']);
+        }
+
+        if ($response->isClientError()) {
+            throw new ClientSideException($response->getStatusCode() . ':' . $rawResponse['error']);
+        }
+
+        if ($response->isServerError()) {
+            throw new ServerSideException($response->getStatusCode() . ':' . $rawResponse['error']);
+        }
 
         foreach ($rawResponse as $resource => $value) {
             if (array_key_exists($resource, ZendeskApiClient::$RESOURCES)) {
@@ -184,23 +233,31 @@ class ZendeskApiClient
             } elseif (count($resourcesHavingValue) > 1) {
                 throw new \LogicException('Check ZendeskApiClient::$RESOURCES. Should not have duplicates for the values.');
             }
-
-            // return null;
         }
+
+        // Probably an exception then.
+        var_dump('exception end');
+        var_dump($rawResponse);
+
+        die('deserialize');
     }
 
     private function deserializeArrayResponse($resource, array $decodedArrayPayload)
     {
         $ret = array();
-        foreach ($decodedArrayPayload as $nestedResource => $value) {
-            $ret[] = $this->deserializeObjectResponse($nestedResource, json_encode($resource));
+        foreach ($decodedArrayPayload as $i => $value) {
+            $ret[] = $this->deserializeObjectResponse($resource, json_encode($value));
         }
         return $ret;
     }
 
     private function deserializeObjectResponse($resource, $jsonEncodedObjectPayload)
     {
-        return $this->serializer->deserialize($jsonEncodedObjectPayload, ZendeskApiClient::$TYPE_JSON, $this->getTypeForResource($resource));
+        return $this->serializer->deserialize(
+            $jsonEncodedObjectPayload,
+            $this->getTypeForResource($resource, true),
+            ZendeskApiClient::$TYPE_JSON
+        );
     }
 
 
@@ -209,7 +266,7 @@ class ZendeskApiClient
         if (!$isSingular) {
             $resource = substr_replace($resource, "", -1);
         }
-        return '\Kunstmaan\FormBundle\Helper\Zendesk\Model\\' . ucfirst($resource);
+        return 'Kunstmaan\FormBundle\Helper\Zendesk\Model\\' . ucfirst($resource);
     }
 
     /**
@@ -231,8 +288,7 @@ class ZendeskApiClient
      */
     public function createTicket(Ticket $ticketData)
     {
-        throw new NotImplementedException('nop');
-
+        return $this->createCall('tickets', $ticketData);
     }
 
 
