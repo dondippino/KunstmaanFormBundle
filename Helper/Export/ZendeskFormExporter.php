@@ -6,6 +6,7 @@ namespace Kunstmaan\FormBundle\Helper\Export;
 use Gedmo\Exception\FeatureNotImplementedException;
 use Kunstmaan\FormBundle\Helper\Export\FormExportableInterface;
 use Kunstmaan\FormBundle\Helper\Export\FormExporterInterface;
+use Kunstmaan\FormBundle\Helper\Zendesk\Model\Request;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Ticket;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\User;
 use Kunstmaan\FormBundle\Helper\Zendesk\ZendeskApiClient;
@@ -83,25 +84,31 @@ class ZendeskFormExporter implements FormExporterInterface
         $user = new User();
         $user->setName($name)
             ->setRole('end-user')
-            ->setEmail($email);
+            ->setEmail($email)
+            ->setTags('do_not_email');
 
         // Don't do this as the impersonated user.
         $user = $this->apiClient->createUserIfNotPresent($user);
 
-        // Only now start impersonating since this user new exists.
-        $this->apiClient->runAs($email, function(ZendeskApiClient $client) use ($name, $email, $subject, $message, $user) {
+        $ticket = new Ticket();
+        $ticket
+            ->setSubject($subject)
+            ->setDescription($message)
+            ->setRequesterId($user->getId())
+            ->setTags('do_not_email');
 
+        $this->apiClient->createTicket($ticket);
 
-            $ticket = new Ticket();
-            $ticket->setSubject($subject)
-                   ->setDescription($message)
-                   ->setRequesterID($user->getId())
-                   ->setTags('do_not_email');
+        /*
+        // TODO: Get imporsonation working for creating a Request.
+        $this->apiClient->runAs($user->getEmail(), function(ZendeskApiClient $client) use ($name, $email, $subject, $message) {
+            $request = new Request();
+            $request->setSubject($subject)
+                   ->setDescription($message);
 
-            $client->createTicket($ticket);
+            $client->createRequest($request);
         });
-
-        // TODO: Write tests for the entire class.
+        */
     }
 
     public function getName()

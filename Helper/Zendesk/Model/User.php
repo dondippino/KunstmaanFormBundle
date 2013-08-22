@@ -10,25 +10,9 @@ use JMS\Serializer\Annotation as Serializer;
  *
  * @Serializer\ExclusionPolicy("none")
  */
-class User
+class User extends BaseModel
 {
-    /**
-     * Automatically assigned when creating users.
-     *
-     * @var integer $id
-     *
-     * @Serializer\Type("integer")
-     */
-    private $id;
 
-    /**
-     * The API url of this user.
-     *
-     * @var string $url
-     *
-     * @Serializer\Type("string")
-     */
-    private $url;
 
     /**
      * The name of the user.
@@ -261,45 +245,7 @@ class User
 
 
 
-    /**
-     * @return number the $id
-     */
-    public function getId()
-    {
-        return $this->id;
-    }
 
-    /**
-     * @param number $id
-     *
-     * @return $this
-     */
-    public function setId($id)
-    {
-        $this->id = $id;
-
-        return $this;
-    }
-
-    /**
-     * @return string The $url
-     */
-    public function getUrl()
-    {
-        return $this->url;
-    }
-
-    /**
-     * @param string $url
-     *
-     * @return $this
-     */
-    public function setUrl($url)
-    {
-        $this->url = $url;
-
-        return $this;
-    }
 
     /**
      * @return string The $name
@@ -776,7 +722,11 @@ class User
      */
     public function setTags($tags)
     {
-        $this->tags = $tags;
+        if (!is_array($tags)) {
+            $this->tags = explode(' ', $tags);
+        } else {
+            $this->tags = $tags;
+        }
 
         return $this;
     }

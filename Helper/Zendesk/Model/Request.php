@@ -4,46 +4,11 @@ namespace Kunstmaan\FormBundle\Helper\Zendesk\Model;
 
 use JMS\Serializer\Annotation as Serializer;
 
-
-/**
- *
- * @Serializer\ExclusionPolicy("none")
- */
-class Ticket extends BaseModel
+class Request extends BaseModel
 {
 
     /**
-     * A custom reference that can be assigned to a ticket.
-     *
-     * @var string $externalId
-     *
-     * @Serializer\SerializedName("external_id")
-     * @Serializer\Type("string")
-     */
-    protected $externalId;
-
-    /**
-     * @return string
-     */
-    public function getExternalID()
-    {
-        return $this->externalId;
-    }
-
-    /**
-     * @param $value
-     *
-     * @return $this
-     */
-    public function setExternalID($value)
-    {
-        $this->externalId = $value;
-
-        return $this;
-    }
-
-    /**
-     * The subject of the ticket.
+     * The value of the subject field for this request
      *
      * @var string $subject
      *
@@ -71,38 +36,6 @@ class Ticket extends BaseModel
         return $this->subject;
     }
 
-    /**
-     * The tags. Array or space separated string.
-     *
-     * @var string $tags
-     *
-     * @Serializer\Type("array")
-     */
-    protected $tags;
-
-    /**
-     * @param $value
-     *
-     * @return $this
-     */
-    public function setTags($value)
-    {
-        if (!is_array($value)) {
-            $this->tags = explode(' ', $value);
-        } else {
-            $this->tags = $value;
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
-    public function getTags()
-    {
-        return $this->tags;
-    }
 
     /**
      * First comment on the Ticket. Placed by the
@@ -133,22 +66,6 @@ class Ticket extends BaseModel
         return $this->description;
     }
 
-    /**
-     * The original recipient e-mail address of the ticket.
-     *
-     * @var string $description
-     *
-     * @Serializer\Type("string")
-     */
-    protected $recipient;
-
-    /**
-     * @return string
-     */
-    public function getRecipient()
-    {
-        return $this->recipient;
-    }
 
     /**
      * The user who requested this ticket

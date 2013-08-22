@@ -19,7 +19,7 @@ class TokenAuthListener implements ListenerInterface
 
     public function preSend(RequestInterface $request)
     {
-        $request->addHeader('Authorization: Basic '.$this->username.'/token:'.$this->password);
+        $request->addHeader('Authorization: Basic '.base64_encode($this->username.'/token:'.$this->password));
     }
 
     public function postSend(RequestInterface $request, MessageInterface $response)

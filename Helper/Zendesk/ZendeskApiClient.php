@@ -5,13 +5,14 @@ namespace Kunstmaan\FormBundle\Helper\Zendesk;
 
 use Buzz\Browser;
 use Buzz\Client\FileGetContents;
-use Buzz\Listener\LoggerListener;
 use Buzz\Message\Response;
 use JMS\Serializer\Serializer;
+use Kunstmaan\FormBundle\Helper\Buzz\Listener\LoggerListener;
 use Kunstmaan\FormBundle\Helper\Buzz\Listener\TokenAuthListener;
 use Kunstmaan\FormBundle\Helper\Exceptions\ClientSideException;
 use Kunstmaan\FormBundle\Helper\Exceptions\NotAuthorizedException;
 use Kunstmaan\FormBundle\Helper\Exceptions\ServerSideException;
+use Kunstmaan\FormBundle\Helper\Zendesk\Model\Request;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Ticket;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\User;
 use Symfony\Bridge\Monolog\Logger;
@@ -80,17 +81,26 @@ class ZendeskApiClient
     public function runAs($userEmail, $function)
     {
         $originalLogin = $this->login;
-
+        $this->logger->info('imporsonating: '. $userEmail);
         $this->setLogin($userEmail);
 
         try {
             $function($this);
         } catch (\Exception $e) {
-            $this->setLogin($originalLogin);
+            $this->restoreOriginalLogin($originalLogin);
+
             throw new \Exception(sprintf('Error executing code while imporsonating user \'%s\'', $userEmail), 0, $e);
         }
 
+        $this->restoreOriginalLogin($originalLogin);
+
         return true;
+    }
+
+    private function restoreOriginalLogin($original)
+    {
+        $this->setLogin($original);
+        $this->logger->info('returning to original credentials');
     }
 
 
@@ -150,9 +160,7 @@ class ZendeskApiClient
         $browser = $this->getBrowser('users', 'search');
 
         // Find the user with this email.
-        $response = $browser->get($this->createUrl('?query=' . urlencode($user->getEmail())));
-
-        $users = $this->handleResponse($response);
+        $users = $this->getCall($browser, $this->createUrl('?query=' . urlencode($user->getEmail())));
 
         if (empty($users)) {
             return $this->createCall('users', $user);
@@ -172,13 +180,23 @@ class ZendeskApiClient
         $browser = $this->getBrowser($resource);
 
         // TODO: Add Content-Type: application/json
-        $result = $browser->post($this->createUrl(), array('Content-Type' => 'application/json'), $this->serializeObject($object, $resource));
+        $result = $browser->post($this->createUrl(), $this->requestheaders, $this->serializeObject($object, $resource));
         // TODO: Update ID.
         var_dump($result);
 
         $resultingObject = $this->handleResponse($result);
 
         return $resultingObject;
+    }
+
+    private $requestheaders = array('Content-Type' => 'application/json');
+
+    private function getCall(Browser $browser, $url)
+    {
+        $response = $browser->get($url, $this->requestheaders);
+        $result = $this->handleResponse($response);
+
+        return $result;
     }
 
 
@@ -191,7 +209,11 @@ class ZendeskApiClient
 
     public static $TYPE_JSON = 'json';
 
-    public static $RESOURCES = array('users' => 'user', 'tickets' => 'ticket');
+    public static $RESOURCES = array(
+        'users' => 'user',
+        'tickets' => 'ticket',
+        'requests' => 'request',
+    );
 
     /**
      * Throw an exception on error. When empty, return empty array.
@@ -228,7 +250,7 @@ class ZendeskApiClient
             });
 
             if (count($resourcesHavingValue) == 1) {
-                return $this->deserializeObjectResponse($resourcesHavingValue[0], $value);
+                return $this->deserializeObjectResponse(reset($resourcesHavingValue), json_encode($value));
                 //return
             } elseif (count($resourcesHavingValue) > 1) {
                 throw new \LogicException('Check ZendeskApiClient::$RESOURCES. Should not have duplicates for the values.');
@@ -291,14 +313,9 @@ class ZendeskApiClient
         return $this->createCall('tickets', $ticketData);
     }
 
-
-    /**
-     * @param $email
-     *
-     * @return null|User
-     */
-    public function findUserByEmail($email)
+    public function createRequest(Request $requestData)
     {
-        throw new NotImplementedException('nop');
+        return $this->createCall('requests', $requestData);
     }
+
 }
