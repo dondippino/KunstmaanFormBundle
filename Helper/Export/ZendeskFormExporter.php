@@ -113,7 +113,13 @@ class ZendeskFormExporter implements FormExporterInterface
             ->setRequesterId($user->getId())
             ->setTags('do_not_email');
 
-        $this->apiClient->createTicket($ticket, $customFields);
+        $ticket = $this->apiClient->createTicket($ticket, $customFields);
+
+        if ((is_null($ticket)) || is_null($ticket->getId())) {
+            return false;
+        }
+
+        return true;
 
         /*
         // TODO: Get imporsonation working for creating a Request.
@@ -127,14 +133,6 @@ class ZendeskFormExporter implements FormExporterInterface
         */
     }
 
-    /**
-     * @param string $key The key of the custom field. Finds all fields and sees if one exist already. If not, create a new one applicable for the value.
-     * @param mixed $value The type of the value determines what kind of custom field is created.
-     */
-    private function getCustomTicketFieldFor($key, $value)
-    {
-
-    }
 
     public function getName()
     {

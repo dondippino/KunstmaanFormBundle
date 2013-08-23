@@ -3,18 +3,17 @@
 namespace Kunstmaan\FormBundle\Helper\Services;
 
 
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityRepository;
+use Kunstmaan\FormBundle\Entity\Export\LogItem;
+use Kunstmaan\FormBundle\Entity\FormSubmission;
 use Kunstmaan\FormBundle\Helper\Export\FormExportableInterface;
 use Kunstmaan\FormBundle\Helper\Export\FormExporterInterface;
 use Kunstmaan\FormBundle\Helper\Export\ZendeskFormExporter;
 use Kunstmaan\FormBundle\Helper\Zendesk\ZendeskApiClient;
+use Kunstmaan\FormBundle\Repository\Export\LogItemRepository;
+use Kunstmaan\UtilitiesBundle\Helper\ClassLookup;
 use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
-
-// TODO: Provide a way for a piece of code to loop all formsubmissions and check which ones aren't sent.
-//       This will also need a throttler so you can define how many calls are allowed per service.
-// TODO: Write command that finds all FormSubmissions and passes them to this service.
-//       This service will check if the form can be submitted or not.
-//       It'll throw a ApiRateLimiterHit exception when the rate has been hit.
-//       This will cause all FormSubmissions that depend on this service to be tried at a later time.
 
 /**
  * Service will export a single FormExportableInterface if needed.
@@ -37,6 +36,7 @@ class FormExporterService
         $this->logger = $value;
     }
 
+    /** @var EntityManager */
     protected $entityManager;
     public function setEntityManager($entityManager)
     {
@@ -77,6 +77,7 @@ class FormExporterService
                     // TODO: Better way where the container does this work.
                     // I don't want to hardcode the config to the services.
                     // One way is to expose all exporters as services.
+                    // But this would make it very hard to configure
                     $zendeskExporter = new ZendeskFormExporter();
                     $apiClient = new ZendeskApiClient();
                     $apiClient->setApiKey($config['api_key']);
@@ -96,6 +97,79 @@ class FormExporterService
         }
     }
 
+    /**
+     * @param int $limit The limit to attempt.
+     * @param array $exporterNames The list of exporters to try. When empty try all.
+     *
+     * @return array Array containing the service as the key and the number of handled FormSubmissions as the value.
+     */
+    public function exportBacklog($limit = 0, array $exporterNames = array())
+    {
+        /** @var $logItemRepository LogItemRepository */
+        $logItemRepository = $this->entityManager->getRepository('Kunstmaan\FormBundle\Entity\Export\LogItem');
+        /** @var $formSubmissionRepository EntityRepository  */
+        $formSubmissionRepository = $this->entityManager->getRepository('KunstmaanFormBundle:FormSubmission');
+
+        if (!empty($exporters)) {
+            $exporters = $this->findExportersByArray($exporterNames);
+        } else {
+            $exporters = $this->exporters;
+        }
+
+        $log = array();
+        foreach($exporters as $exporter) {
+            $log[$exporter->getName()] = 0;
+
+            $queryBuilder = $formSubmissionRepository->createQueryBuilder('fs');
+            $queryBuilder->select('fs');
+
+            $fs = new FormSubmission(); // Silly way to get the class name.
+            $queryBuilder = $logItemRepository->modifyQueryBuilderToFilterOutExportedEntities($queryBuilder, 'id', ClassLookup::getClass($fs), $exporter->getName());
+            $queryBuilder->orderBy('fs.id', 'asc');
+
+            if ($limit > 0) {
+                $queryBuilder->setMaxResults($limit);
+            }
+
+            $q = $queryBuilder->getQuery();
+            foreach($q->execute() as $formSubmission) {
+                $this->exportSingleExportableForExporter($formSubmission, $exporter->getName(), 'command');
+            }
+
+            // TODO: For every exporter look for the first $limit FormSubmission records not exported records.
+
+            // TODO: For every FormSubmission call the exporter and check if it worked.
+            // $this->createSuccesfulLogForExportable
+
+            // TODO: If it worked, save it as having worked + add to the counter.
+            $log[$exporter->getName()] += 1;
+        }
+
+        // kuma_form_exporter_log
+        // - id
+        // - exporter_name
+        // - exportable_id
+        // - exportable_name
+        // - created_at
+        // - invoker (backlog or direct)
+
+        // kuma_form_exporter_service_info
+        // - contains for every service the timeout info if any.
+
+
+
+
+    }
+
+    private function createSuccesfulLogForExportable(FormExportableInterface $exportableForm, FormExporterInterface $exporter, $invoker)
+    {
+        $item = (new LogItem())->setExportableName(ClassLookup::getClassName($exportableForm))
+                              ->setExporterName($exporter->getName())
+                              ->setInvoker($invoker);
+
+        $this->entityManager->persist($item);
+        $this->entityManager->flush($item);
+    }
 
     public function export(FormExportableInterface $exportableForm)
     {
@@ -104,8 +178,49 @@ class FormExporterService
         // TODO LATER: Check if the API limiter has been hit or not. (throws an exception if the limiter is hit)
 
         foreach ($this->exporters as $formExporter) {
-            $formExporter->export($exportableForm);
+            $this->exportSingleExportableForExporter($exportableForm, $formExporter->getName(), 'direct');
         }
+    }
+
+
+    private function exportSingleExportableForExporter(FormExportableInterface $exportableForm, $exporterName, $invoker)
+    {
+        $exporter = $this->findExporterByName($exporterName);
+        // TODO: Maybe introduce a transaction?
+        if ($exporter->export($exportableForm)) {
+            $this->createSuccesfulLogForExportable($exportableForm, $exporter, $invoker);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @param string $exporterName
+     * @return FormExporterInterface|null
+     */
+    private function findExporterByName($exporterName)
+    {
+        foreach($this->exporters as $name => $service) {
+            if ($name  == $exporterName) {
+                return $service;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array $exporterNames
+     * @return FormExporterInterface[]
+     */
+    private function findExportersByArray(array $exporterNames)
+    {
+        $ret = array();
+        foreach($exporterNames as $name) {
+            $ret[] = $this->findExporterByName($name);
+        }
+
+        return array_filter($ret);
     }
 
 }

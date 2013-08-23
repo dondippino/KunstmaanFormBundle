@@ -20,6 +20,7 @@
         "kunstmaan/node-bundle": "2.2.*",
         "kunstmaan/admin-bundle": "2.2.*",
         "kunstmaan/pagepart-bundle": "2.2.*",
+        "kunstmaan/utilities-bundle": "2.2.*",
         "ddeboer/data-import-bundle": "*",
         "gedmo/doctrine-extensions": "*",
         "gregwar/form-bundle": "dev-master",

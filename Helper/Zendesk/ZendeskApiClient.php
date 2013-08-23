@@ -11,6 +11,7 @@ use Kunstmaan\FormBundle\Helper\Buzz\Listener\LoggerListener;
 use Kunstmaan\FormBundle\Helper\Buzz\Listener\TokenAuthListener;
 use Kunstmaan\FormBundle\Helper\Exceptions\ClientSideException;
 use Kunstmaan\FormBundle\Helper\Exceptions\NotAuthorizedException;
+use Kunstmaan\FormBundle\Helper\Exceptions\RateLimitExceededException;
 use Kunstmaan\FormBundle\Helper\Exceptions\ServerSideException;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Request;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Ticket;
@@ -20,6 +21,8 @@ use Kunstmaan\FormBundle\Helper\Zendesk\Model\User;
 use Symfony\Bridge\Monolog\Logger;
 use Symfony\Component\Locale\Exception\NotImplementedException;
 
+
+// TODO: Split out actual call & serialize logic.
 
 class ZendeskApiClient
 {
@@ -183,9 +186,7 @@ class ZendeskApiClient
 
         $singularResource = $this->getSingularResourceNameFromPluralResourceName($pluralResource);
 
-        // TODO: Add Content-Type: application/json
         $result = $browser->post($this->createUrl(), $this->requestheaders, $this->serializeObject($object, $singularResource));
-        // TODO: Update ID.
 
         $resultingObject = $this->handleResponse($result);
 
@@ -257,6 +258,12 @@ class ZendeskApiClient
         // If 401, unauthorized.
         if ($response->getStatusCode() == 401) {
             throw new NotAuthorizedException($rawResponse['error']);
+        }
+
+        // If 429, too many requests.
+        if ($response->getStatusCode() == 429) {
+            // TODO: Parse Retry-After header. Contains time to wait for in seconds.
+            throw new RateLimitExceededException($rawResponse['error'], 'zendesk', 3600);
         }
 
         if ($response->isClientError()) {

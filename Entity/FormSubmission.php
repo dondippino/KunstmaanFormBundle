@@ -4,10 +4,11 @@ namespace Kunstmaan\FormBundle\Entity;
 
 use DateTime;
 
-use Doctrine\ORM\EntityManager;
 use Kunstmaan\FormBundle\Helper\Export\FormExportableInterface;
+use Kunstmaan\FormBundle\Helper\Export\FormPageExportableInterface;
 use Kunstmaan\NodeBundle\Entity\Node;
 
+use Doctrine\ORM\EntityManager;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -204,10 +205,13 @@ class FormSubmission implements FormExportableInterface
     // TODO: Make a method on the FormPage that'll guess the fields based on the names.
     //       We need this in order to upload the older forms.
     //       Perhaps we need multiple strategies for mapping the FormFields to the regular fields.
+    //       Basically extract this logic, make multiple matchers, add a way to define what matcher(s) to use.
 
     public function getFieldsForExport(EntityManager $em)
     {
-        $values = array('language' => $this->getLang());
+        $ret = array('language' => $this->getLang());
+
+        $entity = $this->getNode()->getNodeTranslation($this->getLang())->getRef($em);
 
         // Loop the fields, try getting their value via getValue, otherwise fall back to the regular string conversion.
         foreach ($this->getFields() as $field) {
@@ -215,18 +219,64 @@ class FormSubmission implements FormExportableInterface
             if (method_exists($field, 'getValue')) {
                 $val = $field->getValue();
             }
-            $values[$field->getIdentityKey()] = $val;
+
+            $key = $field->getIdentityKey();
+
+            if (empty($key)) {
+                if ($entity instanceof FormPageExportableInterface) {
+                    // Attempt to fetch it the old school way.
+                    $key = $this->guessFieldKey($field, $this->getLang(), $entity);
+                }
+            }
+
+            if (!empty($key)) {
+                $ret[$key] = $val;
+            }
         }
 
         // Fetch the keys and values from the form itself.
-        /** @var $entity AbstractFormPage */
-        $entity = $this->getNode()->getNodeTranslation($this->getLang())->getRef($em);
-        $formKeysValues = $entity->getKeysAndValues();
+        if ($entity instanceof FormPageExportableInterface) {
+            /** @var $entity FormPageExportableInterface */
+            $formKeysValues = $entity->getKeysAndValues();
 
-        // Merge with priority for the FormField submission keys.
-        $ret = array_merge($formKeysValues, $values);
+            // Merge with priority for the FormField submission keys.
+            $ret = array_merge($formKeysValues, $ret);
+        }
 
         return $ret;
     }
 
+    /**
+     * @param FormSubmissionField $field The raw FormSubmissionField
+     * @param string $language The language
+     *
+     * @return string The key to use.
+     */
+    public function guessFieldKey(FormSubmissionField $field, $language, FormPageExportableInterface $entity)
+    {
+        $map = $this->getGuessMap($entity, $language);
+
+        foreach($map as $key => $regex) {
+            if (preg_match($regex, $field->getFieldName())) {
+                return $key;
+            }
+        }
+
+        return null;
+    }
+
+    /** @var array */
+    private $guessMap;
+
+    private function getGuessMap(FormPageExportableInterface $entity, $language) {
+        if (is_null($this->guessMap)) {
+            $this->guessMap = array();
+        }
+
+        if (!array_key_exists($language, $this->guessMap)) {
+            $this->guessMap[$language] = $entity->getKeyGuessFieldNameMap($language);
+        }
+
+        return $this->guessMap[$language];
+    }
 }

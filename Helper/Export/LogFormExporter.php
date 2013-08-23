@@ -10,6 +10,8 @@ class LogFormExporter implements FormExporterInterface
     public function export(FormExportableInterface $submission)
     {
         var_dump('LogFormExporter::export');
+
+        return true;
     }
 
     public function getName()

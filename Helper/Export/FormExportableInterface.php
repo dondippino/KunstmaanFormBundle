@@ -15,11 +15,14 @@ interface FormExportableInterface
     /**
      * The identifier that's used to track if the form submission has already been exported or not.
      *
-     * @return mixed
+     * @return string
      */
     public function getIdentifier();
 
     /**
+     * @param EntityManager $em Since we need an EntityManager for the FormSubmission this has to be here.
+     *                          Perhaps create an object that wraps this so it's not polluting the interface.
+     *
      * @return array Array containing the field name in the key and the value for the field as the value.
      */
     public function getFieldsForExport(EntityManager $em);
