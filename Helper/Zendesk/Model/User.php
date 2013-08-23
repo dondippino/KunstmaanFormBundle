@@ -244,6 +244,16 @@ class User extends BaseModel
     private $suspended;
 
 
+    /**
+     *
+     * @var array $customFields
+     *
+     * @Serializer\SerializedName("custom_fields")
+     * @Serializer\Type("array")
+     */
+    private $customFields;
+
+
 
 
 
@@ -718,7 +728,7 @@ class User extends BaseModel
     /**
      * @param array $tags
      *
-     * return $this
+     * @return $this
      */
     public function setTags($tags)
     {
@@ -747,6 +757,26 @@ class User extends BaseModel
     public function setSuspended($suspended)
     {
         $this->suspended = $suspended;
+
+        return $this;
+    }
+
+    /**
+     * @return array the $customFields
+     */
+    public function getCustomFields()
+    {
+        return $this->customFields;
+    }
+
+    /**
+     * @param array $value
+     *
+     * @return $this
+     */
+    public function setCustomFields($value)
+    {
+        $this->tags = $value;
 
         return $this;
     }

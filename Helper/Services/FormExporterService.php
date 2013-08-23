@@ -37,6 +37,12 @@ class FormExporterService
         $this->logger = $value;
     }
 
+    protected $entityManager;
+    public function setEntityManager($entityManager)
+    {
+        $this->entityManager = $entityManager;
+    }
+
     public function addExporter(FormExporterInterface $exporter)
     {
         if (!isset($this->exporters) or is_null($this->exporters)) {
@@ -78,6 +84,7 @@ class FormExporterService
                     $apiClient->setLogin($config['login']);
                     $apiClient->setSerializer($this->serializer);
                     $apiClient->setLogger($this->logger);
+                    $zendeskExporter->setEntityManager($this->entityManager);
                     $zendeskExporter->setApiClient($apiClient);
                     $this->exporters['zendesk'] = $zendeskExporter;
                     break;

@@ -54,6 +54,7 @@ class FileUploadPagePart extends AbstractFormPagePart
         $ffsf = new FileFormSubmissionField();
         $ffsf->setFieldName("field_" . $this->getUniqueId());
         $ffsf->setLabel($this->getLabel());
+        $ffsf->setIdentityKey($this->getIdentityKey());
         $data = $formBuilder->getData();
         $data['formwidget_' . $this->getUniqueId()] = $ffsf;
         $label = $this->getLabel();

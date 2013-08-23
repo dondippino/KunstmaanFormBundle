@@ -104,6 +104,7 @@ class CheckboxPagePart extends AbstractFormPagePart
         $bfsf = new BooleanFormSubmissionField();
         $bfsf->setFieldName("field_" . $this->getUniqueId());
         $bfsf->setLabel($this->getLabel());
+        $bfsf->setIdentityKey($this->getIdentityKey());
         $data = $formBuilder->getData();
         $data['formwidget_' . $this->getUniqueId()] = $bfsf;
         $constraints = array();

@@ -154,6 +154,7 @@ class SingleLineTextPagePart extends AbstractFormPagePart
         $sfsf = new StringFormSubmissionField();
         $sfsf->setFieldName("field_" . $this->getUniqueId());
         $sfsf->setLabel($this->getLabel());
+        $sfsf->setIdentityKey($this->getIdentityKey());
         $data = $formBuilder->getData();
         $data['formwidget_' . $this->getUniqueId()] = $sfsf;
         $label = $this->getLabel();

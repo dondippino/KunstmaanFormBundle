@@ -126,6 +126,7 @@ class EmailPagePart extends AbstractFormPagePart
         $efsf = new EmailFormSubmissionField();
         $efsf->setFieldName("field_" . $this->getUniqueId());
         $efsf->setLabel($this->getLabel());
+        $efsf->setIdentityKey($this->getIdentityKey());
         $data = $formBuilder->getData();
         $data['formwidget_' . $this->getUniqueId()] = $efsf;
 

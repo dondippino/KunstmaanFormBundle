@@ -19,9 +19,20 @@ abstract class AbstractFormPagePart extends AbstractPagePart implements FormAdap
     /**
      * The label
      *
+     * @var string $label
+     *
      * @ORM\Column(type="string", nullable=true)
      */
     protected $label;
+
+    /**
+     * The key. This is optional. Set it when you need an automated tool to know what field this is.
+     *
+     * @var string $key
+     *
+     * @ORM\Column(type="string", nullable=true, name="identity_key")
+     */
+    protected $identityKey;
 
     /**
      * Returns a unique id for the current page part
@@ -36,7 +47,7 @@ abstract class AbstractFormPagePart extends AbstractPagePart implements FormAdap
     /**
      * Set the label used for this page part
      *
-     * @param int $label
+     * @param string $label
      */
     public function setLabel($label)
     {
@@ -51,6 +62,26 @@ abstract class AbstractFormPagePart extends AbstractPagePart implements FormAdap
     public function getLabel()
     {
         return $this->label;
+    }
+
+    /**
+     * Set the key for this PagePart.
+     *
+     * @param string $key
+     */
+    public function setIdentityKey($key)
+    {
+        $this->identityKey = $key;
+    }
+
+    /**
+     * Get the key used for this PagePart.
+     *
+     * @return string
+     */
+    public function getIdentityKey()
+    {
+        return $this->identityKey;
     }
 
     /**

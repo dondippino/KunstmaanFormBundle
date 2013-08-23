@@ -21,7 +21,8 @@ class EmailPagePartAdminType extends AbstractType
             ->add('label', null, array('required' => false))
             ->add('required', 'checkbox', array('required' => false))
             ->add('errorMessageRequired', 'text', array('required' => false))
-            ->add('errorMessageInvalid', 'text', array('required' => false));
+            ->add('errorMessageInvalid', 'text', array('required' => false))
+            ->add('identity_key', 'text', array('required' => false));
     }
 
     /**

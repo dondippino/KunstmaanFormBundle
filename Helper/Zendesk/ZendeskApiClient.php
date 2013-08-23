@@ -14,6 +14,8 @@ use Kunstmaan\FormBundle\Helper\Exceptions\NotAuthorizedException;
 use Kunstmaan\FormBundle\Helper\Exceptions\ServerSideException;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Request;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Ticket;
+use Kunstmaan\FormBundle\Helper\Zendesk\Model\TicketField;
+use Kunstmaan\FormBundle\Helper\Zendesk\Model\TicketFieldEntry;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\User;
 use Symfony\Bridge\Monolog\Logger;
 use Symfony\Component\Locale\Exception\NotImplementedException;
@@ -170,19 +172,20 @@ class ZendeskApiClient
     }
 
     /**
-     * @param string $resource Resource in plural form.
+     * @param string $pluralResource Resource in plural form.
      * @param object $object The object you want to create.
      *
      * @return object The new object with its ID filled in.
      */
-    private function createCall($resource, $object)
+    private function createCall($pluralResource, $object)
     {
-        $browser = $this->getBrowser($resource);
+        $browser = $this->getBrowser($pluralResource);
+
+        $singularResource = $this->getSingularResourceNameFromPluralResourceName($pluralResource);
 
         // TODO: Add Content-Type: application/json
-        $result = $browser->post($this->createUrl(), $this->requestheaders, $this->serializeObject($object, $resource));
+        $result = $browser->post($this->createUrl(), $this->requestheaders, $this->serializeObject($object, $singularResource));
         // TODO: Update ID.
-        var_dump($result);
 
         $resultingObject = $this->handleResponse($result);
 
@@ -200,20 +203,47 @@ class ZendeskApiClient
     }
 
 
-    private function serializeObject($object, $pluralResourceName)
+    private function serializeObject($object, $singularResourceName)
     {
         $newObj = array();
-        $newObj[ZendeskApiClient::$RESOURCES[$pluralResourceName]] = $object;
+        $newObj[$singularResourceName] = $object;
         return $this->serializer->serialize($newObj, 'json');
     }
 
     public static $TYPE_JSON = 'json';
 
-    public static $RESOURCES = array(
-        'users' => 'user',
-        'tickets' => 'ticket',
-        'requests' => 'request',
+    /**
+     * Maps the online resource name to the actual class name. For plural aka collections.
+     * @var array
+     */
+    public static $RESOURCES_PLURAL = array(
+        'users' => 'User',
+        'tickets' => 'Ticket',
+        'requests' => 'Request',
+        'ticket_fields' => 'TicketField',
     );
+
+    /**
+     * Maps the online resource name to the actual class name. For singular aka single objects.
+     * @var array
+     */
+    public static $RESOURCES_SINGULAR = array(
+        'user' => 'User',
+        'ticket' => 'Ticket',
+        'request' => 'Request',
+        'ticket_field' => 'TicketField',
+    );
+
+    /**
+     * @param string $pluralResourceName
+     * @return string
+     */
+    private function getSingularResourceNameFromPluralResourceName($pluralResourceName)
+    {
+        $className = ZendeskApiClient::$RESOURCES_PLURAL[$pluralResourceName];
+        return array_search($className, ZendeskApiClient::$RESOURCES_SINGULAR);
+    }
+
 
     /**
      * Throw an exception on error. When empty, return empty array.
@@ -237,47 +267,49 @@ class ZendeskApiClient
             throw new ServerSideException($response->getStatusCode() . ':' . $rawResponse['error']);
         }
 
+        // Here we should have some sort of standardized response. Either a collection of resources or a single resource.
+        // Detection is done by the key of the hash. if its singular, deserialize the value as a single object.
+        // Otherwise deserialize all objects in the value as this type of resource.
         foreach ($rawResponse as $resource => $value) {
-            if (array_key_exists($resource, ZendeskApiClient::$RESOURCES)) {
-                return $this->deserializeArrayResponse(ZendeskApiClient::$RESOURCES[$resource], $value);
+            if (array_key_exists($resource, ZendeskApiClient::$RESOURCES_PLURAL)) {
+                return $this->deserializeArrayResponse($resource, $value);
             }
 
-            $resourcesHavingValue = array_filter(ZendeskApiClient::$RESOURCES, function($v) use ($resource) {
-                if ($resource == $v) {
-                    return true;
-                }
-                return false;
-            });
-
-            if (count($resourcesHavingValue) == 1) {
-                return $this->deserializeObjectResponse(reset($resourcesHavingValue), json_encode($value));
-                //return
-            } elseif (count($resourcesHavingValue) > 1) {
-                throw new \LogicException('Check ZendeskApiClient::$RESOURCES. Should not have duplicates for the values.');
+            if (array_key_exists($resource, ZendeskApiClient::$RESOURCES_SINGULAR)) {
+                return $this->deserializeObjectResponse($resource, json_encode($value));
             }
         }
-
-        // Probably an exception then.
-        var_dump('exception end');
-        var_dump($rawResponse);
-
-        die('deserialize');
     }
 
-    private function deserializeArrayResponse($resource, array $decodedArrayPayload)
+    /**
+     * @param $resource
+     * @param array $decodedArrayPayload has to be decoded since we're looping over all of them.
+     *
+     * @return object[]
+     */
+    private function deserializeArrayResponse($pluralResourceName, array $decodedArrayPayload)
     {
         $ret = array();
-        foreach ($decodedArrayPayload as $i => $value) {
-            $ret[] = $this->deserializeObjectResponse($resource, json_encode($value));
+        $singularResourceName = $this->getSingularResourceNameFromPluralResourceName($pluralResourceName);
+        foreach ($decodedArrayPayload as $value) {
+            $ret[] = $this->deserializeObjectResponse($singularResourceName, json_encode($value));
         }
         return $ret;
     }
 
-    private function deserializeObjectResponse($resource, $jsonEncodedObjectPayload)
+
+
+    /**
+     * @param $resource
+     * @param $jsonEncodedObjectPayload
+     *
+     * @return object
+     */
+    private function deserializeObjectResponse($singularResourceName, $jsonEncodedObjectPayload)
     {
         return $this->serializer->deserialize(
             $jsonEncodedObjectPayload,
-            $this->getTypeForResource($resource, true),
+            $this->getTypeForResource($singularResourceName, true),
             ZendeskApiClient::$TYPE_JSON
         );
     }
@@ -285,31 +317,35 @@ class ZendeskApiClient
 
     private function getTypeForResource($resource, $isSingular = false)
     {
-        if (!$isSingular) {
-            $resource = substr_replace($resource, "", -1);
+        if ($isSingular) {
+            $class = ZendeskApiClient::$RESOURCES_SINGULAR[$resource];
+        } else {
+            $class = ZendeskApiClient::$RESOURCES_PLURAL[$resource];
         }
-        return 'Kunstmaan\FormBundle\Helper\Zendesk\Model\\' . ucfirst($resource);
-    }
-
-    /**
-     * Checks if the field has to be created or updated. If so, perform the API call.
-     *
-     * Keeps an internal storage of the state on the API. This way we don't hit the rate limiter so soon.
-     *
-     * @param $fieldData
-     */
-    public function createOrUpdateField($fieldData)
-    {
-        throw new NotImplementedException('nop');
+        return 'Kunstmaan\FormBundle\Helper\Zendesk\Model\\' . $class;
     }
 
     /**
      * Create the ticket with the data. All fields need to exist already.
      *
      * @param $ticketData
+     * @param array $customFields
+     *
+     * @return Ticket The newly created Ticket instance.
      */
-    public function createTicket(Ticket $ticketData)
+    public function createTicket(Ticket $ticketData, array $customFields)
     {
+        foreach ($customFields as $key => $value) {
+            // Assure we have fields for everything.
+            $field = $this->findOrCreateFieldFor($key);
+
+            $fieldEntry = new TicketFieldEntry();
+            $fieldEntry->setId($field->getId());
+            $fieldEntry->setValue($value);
+
+            $ticketData->addCustomField($fieldEntry);
+        }
+
         return $this->createCall('tickets', $ticketData);
     }
 
@@ -318,4 +354,67 @@ class ZendeskApiClient
         return $this->createCall('requests', $requestData);
     }
 
+
+
+    /**
+     * @param string $ticketKey
+     */
+    public function findOrCreateFieldFor($ticketKey)
+    {
+        $field = $this->findTicketFieldForKey($ticketKey);
+
+        if (is_null($field)) {
+            $field = $this->createTicketFieldForKey($ticketKey);
+        }
+
+        return $field;
+    }
+
+
+    /** @var TicketField[] */
+    private $ticketFields;
+    public function getAllTicketFields()
+    {
+        if (is_null($this->ticketFields)) {
+            $browser = $this->getBrowser('ticket_fields');
+            $this->ticketFields = $this->getCall($browser, $this->createUrl());
+        }
+
+        return $this->ticketFields;
+    }
+
+    private function findTicketFieldForKey($key)
+    {
+        foreach ($this->getAllTicketFields() as $field) {
+            if ($field->title == $key) {
+                return $field;
+            }
+        }
+
+        return null;
+    }
+
+    private function createTicketFieldForKey($key)
+    {
+        $new = new TicketField();
+        $new->title = $key;
+        $new->titleInPortal = $this->titleizeKey($key);
+        // TODO: Based on the value we could do something fancier here.
+        // Or perhaps even pass in an array with some options.
+        $new->type = 'text';
+
+        return $this->createCall('ticket_fields', $new);
+    }
+
+    /**
+     * Converts opt_in to Opt In for example.
+     *
+     * @param $key
+     */
+    private function titleizeKey($key)
+    {
+        $key = str_replace('_', ' ', $key);
+        $key = ucwords($key);
+        return $key;
+    }
 }

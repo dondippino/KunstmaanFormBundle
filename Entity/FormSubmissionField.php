@@ -52,6 +52,15 @@ class FormSubmissionField
     protected $label;
 
     /**
+     * The key that maps to a PagePart on the original FormPagePart on the FormPage instance.
+     *
+     * This is kept as a history and is useful for exporting the content.
+     *
+     * @ORM\Column(type="string", name="identity_key", nullable=true)
+     */
+    protected $identityKey;
+
+    /**
      * The FormSubmission this field is part of
      *
      * @ORM\ManyToOne(targetEntity="FormSubmission", inversedBy="fields")
@@ -137,6 +146,26 @@ class FormSubmissionField
     public function setSubmission(FormSubmission $formSubmission)
     {
         $this->formSubmission = $formSubmission;
+    }
+
+    /**
+     * Set the key for this SubmissionField. This refers to the key on the original FormPagePart.
+     *
+     * @param string $key
+     */
+    public function setIdentityKey($key)
+    {
+        $this->identityKey = $key;
+    }
+
+    /**
+     * Get the key used for this PagePart.
+     *
+     * @return string
+     */
+    public function getIdentityKey()
+    {
+        return $this->identityKey;
     }
 
     /**

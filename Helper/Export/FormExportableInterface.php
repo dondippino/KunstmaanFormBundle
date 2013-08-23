@@ -3,6 +3,7 @@
 namespace Kunstmaan\FormBundle\Helper\Export;
 
 
+use Doctrine\ORM\EntityManager;
 use Kunstmaan\FormBundle\Entity\FormSubmissionField;
 
 /**
@@ -12,15 +13,15 @@ interface FormExportableInterface
 {
 
     /**
-     * The identifier that's used to track if the form has already been exported or not.
+     * The identifier that's used to track if the form submission has already been exported or not.
      *
      * @return mixed
      */
     public function getIdentifier();
 
     /**
-     * @return FormSubmissionField[] Array containing the field name in the key and the value for the field as the value.
+     * @return array Array containing the field name in the key and the value for the field as the value.
      */
-    public function getFieldsForExport();
+    public function getFieldsForExport(EntityManager $em);
 
 }

@@ -29,6 +29,7 @@ services:
         calls:
             - [setSerializer, ['@jms_serializer']]
             - [setLogger, ['@kunstmaan_admin.logger']]
+            - [setEntityManager, ['@doctrine.orm.entity_manager']]
             - [createExporters, ['%kunstmaan_form.exporter_configuration%']]
 
     kunstmaan_form.exporters.log_exporter:

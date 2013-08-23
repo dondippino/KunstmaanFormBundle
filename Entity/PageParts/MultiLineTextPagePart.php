@@ -154,6 +154,7 @@ class MultiLineTextPagePart extends AbstractFormPagePart
         $mfsf = new TextFormSubmissionField();
         $mfsf->setFieldName("field_" . $this->getUniqueId());
         $mfsf->setLabel($this->getLabel());
+        $mfsf->setIdentityKey($this->getIdentityKey());
         $data = $formBuilder->getData();
         $data['formwidget_' . $this->getUniqueId()] = $mfsf;
         $label = $this->getLabel();

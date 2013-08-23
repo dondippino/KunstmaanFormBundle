@@ -8,10 +8,18 @@ use Kunstmaan\FormBundle\Helper\Export\FormExportableInterface;
 use Kunstmaan\FormBundle\Helper\Export\FormExporterInterface;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Request;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Ticket;
+use Kunstmaan\FormBundle\Helper\Zendesk\Model\TicketField;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\User;
 use Kunstmaan\FormBundle\Helper\Zendesk\ZendeskApiClient;
 
 
+/**
+ * Depends on the following field keys to exist.
+ * - Either first_name & last_name or just name
+ * - email
+ * - message
+ * - subject (todo: Could come from a config where you tell which node id has to have which values by default)
+ */
 class ZendeskFormExporter implements FormExporterInterface
 {
     /**
@@ -27,6 +35,15 @@ class ZendeskFormExporter implements FormExporterInterface
     public function setApiClient($value)
     {
         $this->apiClient = $value;
+
+        return $this;
+    }
+
+    protected $entityManager;
+
+    public function setEntityManager($entityManager)
+    {
+        $this->entityManager = $entityManager;
 
         return $this;
     }
@@ -52,34 +69,33 @@ class ZendeskFormExporter implements FormExporterInterface
          * Also check if we can update or not in Zentrick. If so we could also provide an update mechanism.
          */
 
+        $fields = $submission->getFieldsForExport($this->entityManager);
+        $message = $this->findInFields('message', $fields);
+        $email = $this->findInFields('email', $fields);
+        $firstName = $this->findInFields('first_name', $fields);
+        $lastName = $this->findInFields('last_name', $fields);
+        $name = $this->findInFields('name', $fields);
+        $subject = $this->findInFields('subject', $fields);
 
-        // How t oget email? WTF :x
-
-
-        $message = $name = $email = null;
-
-        // TODO: Fetch the fields via a new mechanism that allows aliases to be set to formfields.
-        // The FormExportableInterface will then be able to read out these aliased fields
-        // and will complain if one isn't found.
-
-        $message = "testing!\nnew like!";
-        $name = "Vincent API Test";
-        $email = "vincent+zendesk_api_test_1@supervillain.be";
-        $subject = 'Customer Feedback';
-
-        foreach ($submission->getFieldsForExport() as $field) {
-            // TODO: Convert every field to a datastructure known by ZenDesk.
-            //       We can either use Symfony's builtin conversion interface or do something else.
-            //       The conversion should happen outside of this class so it can be re-used.
-
-            // TODO: Convert the fields to a new Ticket.
-            // TODO: Try and save the ticket.
-            //$ticket = new Ticket();
-            //$ticket->set;
-
-            // TEMP: Code to test that how API actually works using a temporary library.
+        $customFields = array();
+        foreach ($fields as $key => $value) {
+            switch ($key) {
+                case 'email':
+                case 'message':
+                case 'first_name':
+                case 'last_name':
+                case 'name':
+                case 'subject':
+                    break;
+                default:
+                    // Store to create a field for later.
+                    $customFields[$key] = $value;
+            }
         }
 
+        if (empty($name)) {
+            $name = $firstName.' '.$lastName;
+        }
 
         $user = new User();
         $user->setName($name)
@@ -97,7 +113,7 @@ class ZendeskFormExporter implements FormExporterInterface
             ->setRequesterId($user->getId())
             ->setTags('do_not_email');
 
-        $this->apiClient->createTicket($ticket);
+        $this->apiClient->createTicket($ticket, $customFields);
 
         /*
         // TODO: Get imporsonation working for creating a Request.
@@ -111,8 +127,27 @@ class ZendeskFormExporter implements FormExporterInterface
         */
     }
 
+    /**
+     * @param string $key The key of the custom field. Finds all fields and sees if one exist already. If not, create a new one applicable for the value.
+     * @param mixed $value The type of the value determines what kind of custom field is created.
+     */
+    private function getCustomTicketFieldFor($key, $value)
+    {
+
+    }
+
     public function getName()
     {
         return 'zendesk';
+    }
+
+
+    private function findInFields($name, array $fields)
+    {
+        if (array_key_exists($name, $fields)) {
+            return $fields[$name];
+        }
+
+        return null;
     }
 }

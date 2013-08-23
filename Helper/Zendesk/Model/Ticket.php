@@ -179,4 +179,54 @@ class Ticket extends BaseModel
 
         return $this;
     }
+
+    /**
+     * The custom fields of the ticket
+     *
+     * @var array $customFields
+     *
+     * @Serializer\SerializedName("custom_fields")
+     * @Serializer\Type("array")
+     */
+    protected $customFields;
+
+    /**
+     * @return array
+     */
+    public function getCustomFields()
+    {
+        if (is_null($this->customFields)) {
+            $this->customFields = array();
+        }
+
+        return $this->customFields;
+    }
+
+    /**
+     * @param array $value
+     *
+     * @return $this
+     */
+    public function setCustomFields(array $value)
+    {
+        $this->customFields = $value;
+
+        return $this;
+    }
+
+    /**
+     * @param TicketFieldEntry $field
+     *
+     * @return $this
+     */
+    public function addCustomField(TicketFieldEntry $field)
+    {
+        if (is_null($this->customFields)) {
+            $this->customFields = array();
+        }
+
+        $this->customFields[] = $field;
+
+        return $this;
+    }
 }

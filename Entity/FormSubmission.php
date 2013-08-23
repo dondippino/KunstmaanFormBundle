@@ -4,6 +4,7 @@ namespace Kunstmaan\FormBundle\Entity;
 
 use DateTime;
 
+use Doctrine\ORM\EntityManager;
 use Kunstmaan\FormBundle\Helper\Export\FormExportableInterface;
 use Kunstmaan\NodeBundle\Entity\Node;
 
@@ -200,13 +201,32 @@ class FormSubmission implements FormExportableInterface
         return $this->getId();
     }
 
+    // TODO: Make a method on the FormPage that'll guess the fields based on the names.
+    //       We need this in order to upload the older forms.
+    //       Perhaps we need multiple strategies for mapping the FormFields to the regular fields.
 
-    public function getFieldsForExport()
+    public function getFieldsForExport(EntityManager $em)
     {
-        // TODO: Find a way to add language, created, node_id, node_name etc in a nice manner.
-        //       There should be a function on the interface to provide this.
+        $values = array('language' => $this->getLang());
 
-        return $this->getFields();
+        // Loop the fields, try getting their value via getValue, otherwise fall back to the regular string conversion.
+        foreach ($this->getFields() as $field) {
+            $val = (string)$field;
+            if (method_exists($field, 'getValue')) {
+                $val = $field->getValue();
+            }
+            $values[$field->getIdentityKey()] = $val;
+        }
+
+        // Fetch the keys and values from the form itself.
+        /** @var $entity AbstractFormPage */
+        $entity = $this->getNode()->getNodeTranslation($this->getLang())->getRef($em);
+        $formKeysValues = $entity->getKeysAndValues();
+
+        // Merge with priority for the FormField submission keys.
+        $ret = array_merge($formKeysValues, $values);
+
+        return $ret;
     }
 
 }

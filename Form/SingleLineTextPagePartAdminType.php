@@ -22,7 +22,8 @@ class SingleLineTextPagePartAdminType extends AbstractType
             ->add('required', 'checkbox', array('required' => false))
             ->add('errormessage_required', 'text', array('required' => false))
             ->add('regex', 'text', array('required' => false))
-            ->add('errormessage_regex', 'text', array('required' => false));
+            ->add('errormessage_regex', 'text', array('required' => false))
+            ->add('identity_key', 'text', array('required' => false));
     }
 
     /**

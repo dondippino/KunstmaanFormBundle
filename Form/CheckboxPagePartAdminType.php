@@ -20,7 +20,8 @@ class CheckboxPagePartAdminType extends AbstractType
         $builder
             ->add('label', null, array('required' => false))
             ->add('required', 'checkbox', array('required' => false))
-            ->add('errormessage_required', 'text', array('required' => false));
+            ->add('errormessage_required', 'text', array('required' => false))
+            ->add('identity_key', 'text', array('required' => false));
     }
 
     /**

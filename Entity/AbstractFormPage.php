@@ -198,4 +198,13 @@ abstract class AbstractFormPage extends AbstractPage implements FormPageInterfac
         return "main";
     }
 
+    /**
+     * @return array Array containing keys & values.
+     *               Perhaps you added an extra field on the entity which you want to export.
+     */
+    public function getKeysAndValues()
+    {
+        return array();
+    }
+
 }

@@ -21,7 +21,8 @@ class FileUploadPagePartAdminType extends AbstractType
         $builder
             ->add('label', null, array('required' => true))
             ->add('required', 'checkbox', array('required' => false))
-            ->add('errormessage_required', 'text', array('required' => false));
+            ->add('errormessage_required', 'text', array('required' => false))
+            ->add('identity_key', 'text', array('required' => false));
     }
 
     /**
