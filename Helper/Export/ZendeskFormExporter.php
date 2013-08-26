@@ -2,13 +2,9 @@
 
 namespace Kunstmaan\FormBundle\Helper\Export;
 
-
-use Gedmo\Exception\FeatureNotImplementedException;
 use Kunstmaan\FormBundle\Helper\Export\FormExportableInterface;
 use Kunstmaan\FormBundle\Helper\Export\FormExporterInterface;
-use Kunstmaan\FormBundle\Helper\Zendesk\Model\Request;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Ticket;
-use Kunstmaan\FormBundle\Helper\Zendesk\Model\TicketField;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\User;
 use Kunstmaan\FormBundle\Helper\Zendesk\ZendeskApiClient;
 
@@ -130,7 +126,7 @@ class ZendeskFormExporter implements FormExporterInterface
         return true;
 
         /*
-        // TODO: Get imporsonation working for creating a Request.
+        // TODO: Get imporsonation working for creating a Request (aka creating a ticket from the perspective of the requester).
         $this->apiClient->runAs($user->getEmail(), function(ZendeskApiClient $client) use ($name, $email, $subject, $message) {
             $request = new Request();
             $request->setSubject($subject)

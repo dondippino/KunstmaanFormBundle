@@ -38,7 +38,6 @@ class KunstmaanFormExtension extends Extension
         }
         $container->setParameter('kunstmaan_form.exporter_configuration', $param);
 
-
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yml');
     }
