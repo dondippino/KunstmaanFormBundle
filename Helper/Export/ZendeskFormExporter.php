@@ -70,6 +70,7 @@ class ZendeskFormExporter implements FormExporterInterface
          */
 
         $fields = $submission->getFieldsForExport($this->entityManager);
+
         $message = $this->findInFields('message', $fields);
         $email = $this->findInFields('email', $fields);
         $firstName = $this->findInFields('first_name', $fields);

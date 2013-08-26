@@ -255,6 +255,10 @@ class ZendeskApiClient
         return array_search($className, ZendeskApiClient::$RESOURCES_SINGULAR);
     }
 
+    private static function startsWith($haystack, $needle)
+    {
+        return !strncmp($haystack, $needle, strlen($needle));
+    }
 
     /**
      * Throw an exception on error. When empty, return empty array.
@@ -273,7 +277,16 @@ class ZendeskApiClient
         // If 429, too many requests.
         if ($response->getStatusCode() == 429) {
             // TODO: Parse Retry-After header. Contains time to wait for in seconds.
-            throw new RateLimitExceededException($rawResponse['error'], 'zendesk', 3600);
+            $headers = $response->getHeaders();
+            $timeoutInSeconds = 3600;
+            foreach ($headers as $header) {
+                if (ZendeskApiClient::startsWith($header, 'Retry-After')) {
+                    $split = explode(':', $header);
+                    $headerValue = end($split);
+                    $timeoutInSeconds = (integer)$headerValue;
+                }
+            }
+            throw new RateLimitExceededException($rawResponse['error'], 'zendesk', $timeoutInSeconds);
         }
 
         if ($response->isClientError()) {

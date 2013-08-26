@@ -188,6 +188,8 @@ class FormExporterService
     {
         $exporter = $this->findExporterByName($exporterName);
         // TODO: Maybe introduce a transaction?
+        // TODO: Introduce exporter-specific settings. (Like last time API limit hit and timeout)
+        // TODO: Introduce state for ExportLog for retryable errors (API limiter, ServerSide) and non-retryable errors (ClientSide)
         if ($exporter->export($exportableForm)) {
             $this->createSuccesfulLogForExportable($exportableForm, $exporter, $invoker);
             return true;

@@ -236,17 +236,8 @@ class FormSubmission implements FormExportableInterface
 
             // Merge with priority for the FormField submission keys.
             $ret = array_merge($formKeysValues, $ret);
-        }
 
-        // Modify the subject if it's too little.
-        if (array_key_exists('subject', $ret)) {
-            $subject = $ret['subject'];
-            $message = $ret['message'];
-            if ((!empty($subject)) && (strlen($subject) < 30)) {
-                $subject = $subject.': '.mb_substr($message, 0, 30);
-            }
-
-            $ret['subject'] = $subject;
+            $ret = $entity->tweakAllKeysAndValues($ret);
         }
 
         return $ret;

@@ -32,10 +32,10 @@ services:
             - [setEntityManager, ['@doctrine.orm.entity_manager']]
             - [createExporters, ['%kunstmaan_form.exporter_configuration%']]
 
-    kunstmaan_form.exporters.log_exporter:
-        class: %kunstmaan_form.log_exporter.class%
-        tags:
-            - { name: 'kunstmaan_form.exporter' }
+    #kunstmaan_form.exporters.log_exporter:
+    #    class: %kunstmaan_form.log_exporter.class%
+    #    tags:
+    #        - { name: 'kunstmaan_form.exporter' }
 
     kunstmaan_form.configure_sub_actions_menu_listener:
         class: Kunstmaan\FormBundle\EventListener\ConfigureActionsMenuListener
