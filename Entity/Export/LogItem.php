@@ -43,6 +43,13 @@ class LogItem extends \Kunstmaan\AdminBundle\Entity\AbstractEntity
     /**
      * @var string
      *
+     * @ORM\Column(name="state", type="string", length=255)
+     */
+    private $state;
+
+    /**
+     * @var string
+     *
      * @ORM\Column(name="invoker", type="string", length=15)
      */
     private $invoker;
@@ -120,6 +127,29 @@ class LogItem extends \Kunstmaan\AdminBundle\Entity\AbstractEntity
     public function getExportableName()
     {
         return $this->exportableName;
+    }
+
+    /**
+     * Set state
+     *
+     * @param string $state
+     * @return LogItem
+     */
+    public function setState($state)
+    {
+        $this->state = $state;
+
+        return $this;
+    }
+
+    /**
+     * Get state
+     *
+     * @return string
+     */
+    public function getState()
+    {
+        return $this->state;
     }
 
     /**

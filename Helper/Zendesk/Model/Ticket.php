@@ -229,4 +229,34 @@ class Ticket extends BaseModel
 
         return $this;
     }
+
+    /**
+     * When this ticket was created.
+     *
+     * @var string $createdAt
+     *
+     * @Serializer\SerializedName("created_at")
+     * @Serializer\Type("DateTime")
+     */
+    protected $createdAt;
+
+    /**
+     * @return \DateTime
+     */
+    public function getCreatedAt()
+    {
+        return $this->createdAt;
+    }
+
+    /**
+     * @param $value
+     *
+     * @return $this
+     */
+    public function setCreatedAt($value)
+    {
+        $this->createdAt = $value;
+
+        return $this;
+    }
 }

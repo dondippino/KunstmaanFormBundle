@@ -25,13 +25,6 @@ class FormExporterCommand extends ContainerAwareCommand
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        /*
-        if (stripos(gethostname(), 'zenit') === false) {
-            $output->writeln('<error>Only runs on Zenit</error>');
-            return 1;
-        }
-        */
-
         $limit = $input->getOption('limit');
 
         if (is_null($limit) || !is_numeric($limit) || $limit < 0) {
@@ -43,7 +36,12 @@ class FormExporterCommand extends ContainerAwareCommand
         $service = $this->getContainer()->get('kunstmaan_form.exporter_service');
         $log = $service->exportBacklog($limit);
 
-        $output->writeln(sprintf('Performed backlog for %s FormSubmissions.', $limit));
+        $logString = '';
+        foreach ($log as $serviceName => $count) {
+            $logString = $logString.$serviceName.":".$count."\n";
+        }
+
+        $output->write($logString);
 
         return 0;
     }

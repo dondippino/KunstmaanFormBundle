@@ -7,12 +7,19 @@ use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityRepository;
 use Kunstmaan\FormBundle\Entity\Export\LogItem;
 use Kunstmaan\FormBundle\Entity\FormSubmission;
+use Kunstmaan\FormBundle\Helper\Exceptions\ClientSideException;
+use Kunstmaan\FormBundle\Helper\Exceptions\NotAuthorizedException;
+use Kunstmaan\FormBundle\Helper\Exceptions\RateLimitExceededException;
+use Kunstmaan\FormBundle\Helper\Exceptions\ServerSideException;
 use Kunstmaan\FormBundle\Helper\Export\FormExportableInterface;
 use Kunstmaan\FormBundle\Helper\Export\FormExporterInterface;
+use Kunstmaan\FormBundle\Helper\Export\TimeoutableInterface;
 use Kunstmaan\FormBundle\Helper\Export\ZendeskFormExporter;
 use Kunstmaan\FormBundle\Helper\Zendesk\ZendeskApiClient;
 use Kunstmaan\FormBundle\Repository\Export\LogItemRepository;
 use Kunstmaan\UtilitiesBundle\Helper\ClassLookup;
+use Monolog\Logger;
+use Symfony\Component\Config\Definition\Exception\Exception;
 use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 
 /**
@@ -30,6 +37,7 @@ class FormExporterService
         $this->serializer = $value;
     }
 
+    /** @var Logger */
     protected $logger;
     public function setLogger($value)
     {
@@ -43,6 +51,12 @@ class FormExporterService
         $this->entityManager = $entityManager;
     }
 
+    /**
+     * This is called via the precompiler pass. See: ```FormExporterCompilerPass```
+     *
+     * @param FormExporterInterface $exporter
+     * @throws \LogicException
+     */
     public function addExporter(FormExporterInterface $exporter)
     {
         if (!isset($this->exporters) or is_null($this->exporters)) {
@@ -124,7 +138,7 @@ class FormExporterService
             $queryBuilder->select('fs');
 
             $fs = new FormSubmission(); // Silly way to get the class name.
-            $queryBuilder = $logItemRepository->modifyQueryBuilderToFilterOutExportedEntities($queryBuilder, 'id', ClassLookup::getClass($fs), $exporter->getName());
+            $queryBuilder = $logItemRepository->modifyQueryBuilderToFilterOutSuccessfullyExportedEntities($queryBuilder, 'id', ClassLookup::getClass($fs), $exporter->getName());
             $queryBuilder->orderBy('fs.id', 'asc');
 
             if ($limit > 0) {
@@ -133,69 +147,86 @@ class FormExporterService
 
             $q = $queryBuilder->getQuery();
             foreach($q->execute() as $formSubmission) {
-                $this->exportSingleExportableForExporter($formSubmission, $exporter->getName(), 'command');
+                if ($this->exportSingleExportableForExporter($formSubmission, $exporter->getName(), 'command')) {
+                    $log[$exporter->getName()] += 1;
+                }
             }
-
-            // TODO: For every exporter look for the first $limit FormSubmission records not exported records.
-
-            // TODO: For every FormSubmission call the exporter and check if it worked.
-            // $this->createSuccesfulLogForExportable
-
-            // TODO: If it worked, save it as having worked + add to the counter.
-            $log[$exporter->getName()] += 1;
         }
 
-        // kuma_form_exporter_log
-        // - id
-        // - exporter_name
-        // - exportable_id
-        // - exportable_name
-        // - created_at
-        // - invoker (backlog or direct)
-
-        // kuma_form_exporter_service_info
-        // - contains for every service the timeout info if any.
-
-
-
-
+        return $log;
     }
 
-    private function createSuccesfulLogForExportable(FormExportableInterface $exportableForm, FormExporterInterface $exporter, $invoker)
-    {
-        $item = (new LogItem())->setExportableName(ClassLookup::getClass($exportableForm))
-                               ->setExporterName($exporter->getName())
-                               ->setExportableId($exportableForm->getIdentifier())
-                               ->setInvoker($invoker);
-
-        $this->entityManager->persist($item);
-        $this->entityManager->flush($item);
-    }
-
+    /**
+     * Export a single FormExportableInterface for all registered exporters.
+     *
+     * @param FormExportableInterface $exportableForm
+     */
     public function export(FormExportableInterface $exportableForm)
     {
-        // TODO: Check if it's been exported already. (via a custom Entity)
-
-        // TODO LATER: Check if the API limiter has been hit or not. (throws an exception if the limiter is hit)
-
         foreach ($this->exporters as $formExporter) {
             $this->exportSingleExportableForExporter($exportableForm, $formExporter->getName(), 'direct');
         }
     }
 
 
+    /**
+     * Do all the logic for a single FormExportableInterface and exporter.
+     *
+     * @param FormExportableInterface $exportableForm
+     * @param $exporterName
+     * @param $invoker
+     * @return bool
+     */
     private function exportSingleExportableForExporter(FormExportableInterface $exportableForm, $exporterName, $invoker)
     {
         $exporter = $this->findExporterByName($exporterName);
         // TODO: Maybe introduce a transaction?
-        // TODO: Introduce exporter-specific settings. (Like last time API limit hit and timeout)
-        // TODO: Introduce state for ExportLog for retryable errors (API limiter, ServerSide) and non-retryable errors (ClientSide)
-        if ($exporter->export($exportableForm)) {
-            $this->createSuccesfulLogForExportable($exportableForm, $exporter, $invoker);
-            return true;
+
+        try {
+            if ($exporter->export($exportableForm)) {
+                if ($exporter instanceof TimeoutableInterface) {
+                    /** @var $exporter TimeoutableInterface */
+                    if ($exporter->isInTimeout()) {
+                        return false;
+                    }
+                }
+
+                $this->doLogExportable($exportableForm, $exporter, $invoker, 'success');
+                return true;
+            }
+            return false;
+        } catch (ServerSideException $sse) {
+            $state = 'serverside';
+            $message = $sse->getCode().': '.$sse->getMessage();
+        } catch (ClientSideException $cse) {
+            $message = $cse->getCode().': '.$cse->getMessage();
+            $state = 'clientside';
+        } catch (RateLimitExceededException $rle) {
+            $message = $rle->getCode().': '.$rle->getMessage();
+            $state = 'ratelimit';
+
+            if ($exporter instanceof TimeoutableInterface) {
+                /** @var $exporter TimeoutableInterface */
+                $exporter->setTimeoutPeriodInSeconds($rle->getCooldownPeriodInSeconds());
+            }
+        } catch (NotAuthorizedException $nae) {
+            $message = $nae->getCode().': '.$nae->getMessage();
+            $state = 'unauthorized';
+        } catch (Exception $e) {
+            $message = $e->getMessage();
+            $state = 'unknown';
         }
+
+        $errorText = 'Couldn\'t export \'%s\' with ID \'%s\'. State is \'%s\'. Error was \'%s\'';
+        $exporterClass = ClassLookup::getClass($exportableForm);
+
+        $this->logger->error(sprintf($errorText, $exporterClass, $exportableForm->getIdentifier(), $state, $message));
+
+        $this->doLogExportable($exportableForm, $exporter, $invoker, $state);
         return false;
     }
+
+
 
     /**
      * @param string $exporterName
@@ -224,6 +255,31 @@ class FormExporterService
         }
 
         return array_filter($ret);
+    }
+
+    private function createOrFindLogForExportable(FormExportableInterface $exportableForm, FormExporterInterface $exporter, $invoker)
+    {
+        $exportLogItemRepo = $this->entityManager->getRepository('KunstmaanFormBundle:Export\LogItem');
+        $exporterClass = ClassLookup::getClass($exportableForm);
+        $item = $exportLogItemRepo->findOneBy(array('exportableName' => $exporterClass, 'exportableId' => $exportableForm->getIdentifier()));
+
+        if (!is_null($item)) {
+            return $item;
+        }
+
+        return (new LogItem())->setExportableName($exporterClass)
+            ->setExporterName($exporter->getName())
+            ->setExportableId($exportableForm->getIdentifier())
+            ->setInvoker($invoker);
+    }
+
+    private function doLogExportable(FormExportableInterface $exportableForm, FormExporterInterface $exporter, $invoker, $state)
+    {
+        $item = $this->createOrFindLogForExportable($exportableForm, $exporter, $invoker);
+        $item->setState($state);
+
+        $this->entityManager->persist($item);
+        $this->entityManager->flush($item);
     }
 
 }

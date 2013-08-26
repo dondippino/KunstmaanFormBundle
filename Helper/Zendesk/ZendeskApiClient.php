@@ -276,7 +276,6 @@ class ZendeskApiClient
 
         // If 429, too many requests.
         if ($response->getStatusCode() == 429) {
-            // TODO: Parse Retry-After header. Contains time to wait for in seconds.
             $headers = $response->getHeaders();
             $timeoutInSeconds = 3600;
             foreach ($headers as $header) {
@@ -436,8 +435,10 @@ class ZendeskApiClient
         $new = new TicketField();
         $new->title = $key;
         $new->titleInPortal = $this->titleizeKey($key);
+
         // TODO: Based on the value we could do something fancier here.
         // Or perhaps even pass in an array with some options.
+        // For now just set it up as textfields. Should work for pretty much everything.
         $new->type = 'text';
 
         return $this->createCall('ticket_fields', $new);

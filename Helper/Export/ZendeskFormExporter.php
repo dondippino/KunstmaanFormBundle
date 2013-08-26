@@ -2,6 +2,7 @@
 
 namespace Kunstmaan\FormBundle\Helper\Export;
 
+use Kunstmaan\FormBundle\Helper\Exceptions\ClientSideException;
 use Kunstmaan\FormBundle\Helper\Export\FormExportableInterface;
 use Kunstmaan\FormBundle\Helper\Export\FormExporterInterface;
 use Kunstmaan\FormBundle\Helper\Zendesk\Model\Ticket;
@@ -14,9 +15,9 @@ use Kunstmaan\FormBundle\Helper\Zendesk\ZendeskApiClient;
  * - Either first_name & last_name or just name
  * - email
  * - message
- * - subject (todo: Could come from a config where you tell which node id has to have which values by default)
+ * - subject
  */
-class ZendeskFormExporter implements FormExporterInterface
+class ZendeskFormExporter extends TimeoutableBase implements FormExporterInterface
 {
     /**
      * @var ZendeskApiClient
@@ -35,14 +36,6 @@ class ZendeskFormExporter implements FormExporterInterface
         return $this;
     }
 
-    protected $entityManager;
-
-    public function setEntityManager($entityManager)
-    {
-        $this->entityManager = $entityManager;
-
-        return $this;
-    }
 
 
     public function export(FormExportableInterface $submission)
@@ -73,6 +66,10 @@ class ZendeskFormExporter implements FormExporterInterface
         $lastName = $this->findInFields('last_name', $fields);
         $name = $this->findInFields('name', $fields);
         $subject = $this->findInFields('subject', $fields);
+
+        if (empty($email)) {
+            throw new ClientSideException(sprintf('Couldn\'t find email for FormExportableInterface.'));
+        }
 
         $customFields = array();
         foreach ($fields as $key => $value) {
@@ -117,6 +114,10 @@ class ZendeskFormExporter implements FormExporterInterface
         $createdAt = $submission->getCreationDate();
         $import = ($createdAt < new \DateTime('-7 days'));
 
+        if ($import) {
+            $ticket->setCreatedAt($createdAt);
+        }
+
         $ticket = $this->apiClient->createTicket($ticket, $customFields, $import);
 
         if ((is_null($ticket)) || is_null($ticket->getId())) {
@@ -152,4 +153,5 @@ class ZendeskFormExporter implements FormExporterInterface
 
         return null;
     }
+
 }

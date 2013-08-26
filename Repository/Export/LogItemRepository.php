@@ -23,13 +23,14 @@ class LogItemRepository extends EntityRepository
      *
      * @return QueryBuilder
      */
-    public function modifyQueryBuilderToFilterOutExportedEntities(QueryBuilder $builder, $originalEntityIdentifier, $originalEntityClass, $exporterName)
+    public function modifyQueryBuilderToFilterOutSuccessfullyExportedEntities(QueryBuilder $builder, $originalEntityIdentifier, $originalEntityClass, $exporterName)
     {
         $aliases = $builder->getRootAliases();
         $alias = reset($aliases);
 
-        $builder->leftJoin('KunstmaanFormBundle:Export\LogItem', 'li', 'WITH', $alias.'.'.$originalEntityIdentifier." = li.exportableId AND li.exportableName = '".$originalEntityClass."' AND li.exporterName = '".$exporterName."'");
-        $builder->andWhere('li.id IS NULL');
+        $builder->leftJoin('KunstmaanFormBundle:Export\LogItem', 'li', 'WITH',
+            $alias.'.'.$originalEntityIdentifier." = li.exportableId AND li.exportableName = '".$originalEntityClass."' AND li.exporterName = '".$exporterName."'");
+        $builder->andWhere('(li.state IS NULL) OR (li.state IN (\'serverside\',\'ratelimit\'))');
 
         return $builder;
     }

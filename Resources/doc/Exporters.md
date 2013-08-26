@@ -33,10 +33,20 @@ If you notice the labels are distinctive enough in each language this isn't nece
 
 ## Using the Zendesk exporter
 
-TODO: Document what functions to add to a FormPage for it to find the key identifiers.
-TODO: Document how to instantiate the ZendeskFormExporter as a service.
+Enabeling of the Zendesk exporter is easy. Just add the following parameters to your configuration.
+The FormBundle will detect these settings and automatically instantiate the Zendesk exporter.
 
-The ZendeskFormExporter requires a couple of Identity Keys to be present:
+```
+kunstmaan_form:
+    exporters:
+        zendesk:
+            api_key: 'your_API_key'
+            domain: 'your_domain'
+            login: 'account@email.com'
+
+```
+
+The ZendeskFormExporter requires a couple of Identity Keys to be present on your form pages:
 
 * email. The email at which the customer can be contacted.
 * message. The message containing the customer's feedback.
@@ -48,12 +58,31 @@ This allows you to filter out tickets in the backend or get a fully structured o
 
 The language identity key is automatically set for every FormSubmission and will be entered in zendesk as a custom field.
 
+Here is some code straight from one of our FormPage classes that contains a bunch of PageParts.
+The page exists in 3 languages and as you can see we chose to have a single map for all languages at once.
+You could do a switch on the language and provide regular expressions for each language separately.
+
+As mentioned this is not needed for new FormSubmissions when you add the entity_keys to your pageparts.
+
+```PHP
+    public function getKeyGuessFieldNameMap($language)
+    {
+        return array(
+            'first_name' => array('/^Voornaam.*/i', '/^Prénom.*/i', '/^Name.*/i'),
+            'last_name' => array('/^Naam.*/i', '/^Surname.*/i', '/^Nom.*/i'),
+            'email' => array('/^E-mailadres.*/i', '/^Adresse e-mail.*/i', '/^E-mail.*/i'),
+            'message' => array('/.*feedback.*/i', '/^Boodschap.*/i', '/^message.*/i'),
+            'company' => array('/.*bedrijf.*/i', '/.*company.*/i', '/.*entreprise.*/i'),
+        );
+    }
+```
+
 ## Exporting your backlog
 
 Exporting the backlog is easy.
 
 ```
-    app/console kuma:form:export --limit=1
+    app/console kuma:form:export --limit=40
 ```
 
 The limit parameter can be 0 for no limit but this is definitely not recommended.
@@ -61,14 +90,16 @@ It's best to throttle it to 40 records every 10 minutes.
 This way the limiter won't be hit when processing the entire backlog.
 
 It's important to set this up as a cronjob because the API limit can be hit even when you don't have a backlog.
-If this is the case new exports won't be submitted into Zendesk and you might lose cruacial customer feedback.
+If this is the case new exports won't be submitted into Zendesk and you might lose crucial customer feedback.
 
-This is the reason why the export command has been created.
-If this is set as a cronjob it'll continuously reattempt to submit the FormSubmissions that failed in the past.
+This is the reason why we've created the export command.
+If this is set up as a cronjob it'll continuously reattempt to submit the FormSubmissions that failed in the past
+because of server-side errors or hitting the ratelimiter.
 
 ## Adding your own exporters
 
 Adding your own exporters is easy. Just implement the ```FormExportableInterface```,
 register your new class as a service and tag it with ```kunstmaan_form.exporter```.
 
-TODO: Document the API limit and serverside exceptions.
+You can optionally inherit from the TimeoutableBase class or implement the TimoutableInterface yourself.
+This allows the exporter to be disabled for a period of time.
