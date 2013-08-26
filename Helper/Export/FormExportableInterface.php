@@ -27,4 +27,13 @@ interface FormExportableInterface
      */
     public function getFieldsForExport(EntityManager $em);
 
+    /**
+     * This data is used to determine if we are dealing with a stale record which
+     * might get handled differently to new records. Perhaps you don't want to
+     * automatically mail the customer if the record is too old.
+     *
+     * @return \DateTime|null Return null if date is unknown. Otherwise return the date.
+     */
+    public function getCreationDate();
+
 }

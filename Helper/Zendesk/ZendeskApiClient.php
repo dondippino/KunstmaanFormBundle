@@ -121,18 +121,9 @@ class ZendeskApiClient
     private function getBrowser($endpoint, $action = '', $id = null)
     {
         // TODO: Refactor. I really don't like the way we rebuild the browser when the URL changes. Should only rebuild when the user has changed.
-        if (!is_null($id)) {
-            $id = '/' . $id;
-        }
-        if (!is_null($action) && (!empty($action))) {
-            $action = '/' . $action;
-        }
-
-        $newUrl = 'https://' . $this->domain . '.zendesk.com/api/v2/' . $endpoint . $action . $id . '.json';
-        $this->url = $newUrl;
+        $this->createUrl($endpoint, $action, $id);
 
         // TODO: Only refresh browser when the login has changed.
-
         $client = new FileGetContents();
         $browser = new Browser($client);
         $browser->addListener(new TokenAuthListener($this->login, $this->apiKey));
@@ -149,7 +140,22 @@ class ZendeskApiClient
         return $browser;
     }
 
-    private function createUrl($toAppend = '')
+    private function createUrl($endpoint, $action = '', $id = null)
+    {
+        if (!is_null($id)) {
+            $id = '/' . $id;
+        }
+        if (!is_null($action) && (!empty($action))) {
+            $action = '/' . $action;
+        }
+
+        $newUrl = 'https://' . $this->domain . '.zendesk.com/api/v2/' . $endpoint . $action . $id . '.json';
+        $this->url = $newUrl;
+
+        return $this->url;
+    }
+
+    private function expandUrl($toAppend = '')
     {
         return $this->url . $toAppend;
     }
@@ -165,7 +171,7 @@ class ZendeskApiClient
         $browser = $this->getBrowser('users', 'search');
 
         // Find the user with this email.
-        $users = $this->getCall($browser, $this->createUrl('?query=' . urlencode($user->getEmail())));
+        $users = $this->getCall($browser, $this->expandUrl('?query=' . urlencode($user->getEmail())));
 
         if (empty($users)) {
             return $this->createCall('users', $user);
@@ -177,16 +183,20 @@ class ZendeskApiClient
     /**
      * @param string $pluralResource Resource in plural form.
      * @param object $object The object you want to create.
+     * @param string $url If provided this URL will be used.
      *
      * @return object The new object with its ID filled in.
      */
-    private function createCall($pluralResource, $object)
+    private function createCall($pluralResource, $object, $url = '')
     {
         $browser = $this->getBrowser($pluralResource);
 
         $singularResource = $this->getSingularResourceNameFromPluralResourceName($pluralResource);
 
-        $result = $browser->post($this->createUrl(), $this->requestheaders, $this->serializeObject($object, $singularResource));
+        if (empty($url)) {
+            $url = $this->expandUrl();
+        }
+        $result = $browser->post($url, $this->requestheaders, $this->serializeObject($object, $singularResource));
 
         $resultingObject = $this->handleResponse($result);
 
@@ -337,14 +347,15 @@ class ZendeskApiClient
      *
      * @param $ticketData
      * @param array $customFields
+     * @param boolean $isImport When true it'll access a different endpoint specifically for import.
      *
      * @return Ticket The newly created Ticket instance.
      */
-    public function createTicket(Ticket $ticketData, array $customFields)
+    public function createTicket(Ticket $ticketData, array $customFields, $isImport = false)
     {
         foreach ($customFields as $key => $value) {
             // Assure we have fields for everything.
-            $field = $this->findOrCreateFieldFor($key);
+            $field = $this->findOrCreateTicketFieldFor($key);
 
             $fieldEntry = new TicketFieldEntry();
             $fieldEntry->setId($field->getId());
@@ -353,7 +364,11 @@ class ZendeskApiClient
             $ticketData->addCustomField($fieldEntry);
         }
 
-        return $this->createCall('tickets', $ticketData);
+        $url = '';
+        if ($isImport) {
+            $url = $this->createUrl('imports', 'tickets');
+        }
+        return $this->createCall('tickets', $ticketData, $url);
     }
 
     public function createRequest(Request $requestData)
@@ -365,8 +380,10 @@ class ZendeskApiClient
 
     /**
      * @param string $ticketKey
+     *
+     * @return TicketField
      */
-    public function findOrCreateFieldFor($ticketKey)
+    public function findOrCreateTicketFieldFor($ticketKey)
     {
         $field = $this->findTicketFieldForKey($ticketKey);
 
@@ -384,7 +401,7 @@ class ZendeskApiClient
     {
         if (is_null($this->ticketFields)) {
             $browser = $this->getBrowser('ticket_fields');
-            $this->ticketFields = $this->getCall($browser, $this->createUrl());
+            $this->ticketFields = $this->getCall($browser, $this->expandUrl());
         }
 
         return $this->ticketFields;

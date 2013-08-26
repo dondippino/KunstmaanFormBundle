@@ -97,6 +97,10 @@ class ZendeskFormExporter implements FormExporterInterface
             $name = $firstName.' '.$lastName;
         }
 
+        if (empty($subject)) {
+            $subject = mb_substr($message, 0, 50);
+        }
+
         $user = new User();
         $user->setName($name)
             ->setRole('end-user')
@@ -113,7 +117,10 @@ class ZendeskFormExporter implements FormExporterInterface
             ->setRequesterId($user->getId())
             ->setTags('do_not_email');
 
-        $ticket = $this->apiClient->createTicket($ticket, $customFields);
+        $createdAt = $submission->getCreationDate();
+        $import = ($createdAt < new \DateTime('-7 days'));
+
+        $ticket = $this->apiClient->createTicket($ticket, $customFields, $import);
 
         if ((is_null($ticket)) || is_null($ticket->getId())) {
             return false;

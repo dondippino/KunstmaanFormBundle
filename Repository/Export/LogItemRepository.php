@@ -14,7 +14,7 @@ use Doctrine\ORM\QueryBuilder;
 class LogItemRepository extends EntityRepository
 {
     /**
-     * Modifies a QueryBuilder to filter out entities that have been exported succesfully.
+     * Modifies a QueryBuilder to filter out entities that have been exported successfully.
      *
      * @param QueryBuilder $builder
      * @param $originalEntityIdentifier

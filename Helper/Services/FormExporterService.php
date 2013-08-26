@@ -163,9 +163,10 @@ class FormExporterService
 
     private function createSuccesfulLogForExportable(FormExportableInterface $exportableForm, FormExporterInterface $exporter, $invoker)
     {
-        $item = (new LogItem())->setExportableName(ClassLookup::getClassName($exportableForm))
-                              ->setExporterName($exporter->getName())
-                              ->setInvoker($invoker);
+        $item = (new LogItem())->setExportableName(ClassLookup::getClass($exportableForm))
+                               ->setExporterName($exporter->getName())
+                               ->setExportableId($exportableForm->getIdentifier())
+                               ->setInvoker($invoker);
 
         $this->entityManager->persist($item);
         $this->entityManager->flush($item);

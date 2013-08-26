@@ -202,11 +202,6 @@ class FormSubmission implements FormExportableInterface
         return $this->getId();
     }
 
-    // TODO: Make a method on the FormPage that'll guess the fields based on the names.
-    //       We need this in order to upload the older forms.
-    //       Perhaps we need multiple strategies for mapping the FormFields to the regular fields.
-    //       Basically extract this logic, make multiple matchers, add a way to define what matcher(s) to use.
-
     public function getFieldsForExport(EntityManager $em)
     {
         $ret = array('language' => $this->getLang());
@@ -243,23 +238,44 @@ class FormSubmission implements FormExportableInterface
             $ret = array_merge($formKeysValues, $ret);
         }
 
+        // Modify the subject if it's too little.
+        if (array_key_exists('subject', $ret)) {
+            $subject = $ret['subject'];
+            $message = $ret['message'];
+            if ((!empty($subject)) && (strlen($subject) < 30)) {
+                $subject = $subject.': '.mb_substr($message, 0, 30);
+            }
+
+            $ret['subject'] = $subject;
+        }
+
         return $ret;
     }
 
     /**
      * @param FormSubmissionField $field The raw FormSubmissionField
      * @param string $language The language
+     * @param FormPageExportableInterface $entity
      *
-     * @return string The key to use.
+     * @return string|null The key to use.
      */
     public function guessFieldKey(FormSubmissionField $field, $language, FormPageExportableInterface $entity)
     {
         $map = $this->getGuessMap($entity, $language);
 
         foreach($map as $key => $regex) {
-            if (preg_match($regex, $field->getFieldName())) {
-                return $key;
+            if (is_array($regex)) {
+                foreach($regex as $actualRegex) {
+                    if (preg_match($actualRegex, $field->getLabel())) {
+                        return $key;
+                    }
+                }
+            } else {
+                if (preg_match($regex, $field->getLabel())) {
+                    return $key;
+                }
             }
+
         }
 
         return null;
@@ -268,6 +284,12 @@ class FormSubmission implements FormExportableInterface
     /** @var array */
     private $guessMap;
 
+    /**
+     * @param FormPageExportableInterface $entity
+     * @param $language
+     *
+     * @return array
+     */
     private function getGuessMap(FormPageExportableInterface $entity, $language) {
         if (is_null($this->guessMap)) {
             $this->guessMap = array();
@@ -278,5 +300,10 @@ class FormSubmission implements FormExportableInterface
         }
 
         return $this->guessMap[$language];
+    }
+
+    public function getCreationDate()
+    {
+        return $this->getCreated();
     }
 }
