@@ -95,11 +95,17 @@ class ZendeskFormExporter extends TimeoutableBase implements FormExporterInterfa
             $subject = mb_substr($message, 0, 50);
         }
 
+        $tags = array('do_not_email');
+        $language = $this->findInFields('language', $fields);
+        if (strlen($language) >= 2) {
+            $tags[] = 'language_'.$language;
+        }
+
         $user = new User();
         $user->setName($name)
             ->setRole('end-user')
             ->setEmail($email)
-            ->setTags('do_not_email');
+            ->setTags($tags);
 
         // Don't do this as the impersonated user.
         $user = $this->apiClient->createUserIfNotPresent($user);
@@ -109,7 +115,7 @@ class ZendeskFormExporter extends TimeoutableBase implements FormExporterInterfa
             ->setSubject($subject)
             ->setDescription($message)
             ->setRequesterId($user->getId())
-            ->setTags('do_not_email');
+            ->setTags($tags);
 
         $createdAt = $submission->getCreationDate();
         $import = ($createdAt < new \DateTime('-7 days'));
