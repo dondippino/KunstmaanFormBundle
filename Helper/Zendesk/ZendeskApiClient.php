@@ -124,8 +124,9 @@ class ZendeskApiClient
         $this->createUrl($endpoint, $action, $id);
 
         // TODO: Only refresh browser when the login has changed.
-        $client = new FileGetContents();
+        $client = new FileGetContents(); // TODO: Could switch to cURL client here.
         $browser = new Browser($client);
+        $client->setVerifyPeer(false);
         $browser->addListener(new TokenAuthListener($this->login, $this->apiKey));
 
         $logger = $this->logger;
