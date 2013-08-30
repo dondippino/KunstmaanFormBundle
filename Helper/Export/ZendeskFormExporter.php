@@ -79,6 +79,7 @@ class ZendeskFormExporter extends TimeoutableBase implements FormExporterInterfa
                 case 'first_name':
                 case 'last_name':
                 case 'name':
+                case 'tags':
                 case 'subject':
                     break;
                 default:
@@ -95,7 +96,11 @@ class ZendeskFormExporter extends TimeoutableBase implements FormExporterInterfa
             $subject = mb_substr($message, 0, 50);
         }
 
-        $tags = array('do_not_email');
+        $tags = $this->findInFields('tags', $fields);
+        if (!is_array($tags)) {
+            $tags = array($tags);
+        }
+
         $language = $this->findInFields('language', $fields);
         if (strlen($language) >= 2) {
             $tags[] = 'language_'.$language;
