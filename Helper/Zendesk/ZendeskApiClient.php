@@ -4,6 +4,7 @@ namespace Kunstmaan\FormBundle\Helper\Zendesk;
 
 
 use Buzz\Browser;
+use Buzz\Client\Curl;
 use Buzz\Client\FileGetContents;
 use Buzz\Message\Response;
 use JMS\Serializer\Serializer;
@@ -124,9 +125,8 @@ class ZendeskApiClient
         $this->createUrl($endpoint, $action, $id);
 
         // TODO: Only refresh browser when the login has changed.
-        $client = new FileGetContents(); // TODO: Could switch to cURL client here.
+        $client = new Curl();
         $browser = new Browser($client);
-        $client->setVerifyPeer(false);
         $browser->addListener(new TokenAuthListener($this->login, $this->apiKey));
 
         $logger = $this->logger;
